@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-t" />
+  <title>Painel de Controle</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    @font-face { font-family:"Adobe Hebrew"; src: url("/fonts/adobe-hebrew-regular.otf") format("opentype"); }
+    body{ font-family:"Adobe Hebrew", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; }
+    h1{ text-align:center; }
+    #addForm{ background:#1f1f1f; padding:18px; border-radius:12px; max-width:700px; margin:0 auto 18px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    #addForm input, #addForm button{ padding:8px; border-radius:6px; border:0; background: #333; color: #fff;}
+    #addForm button{ grid-column:span 2; background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; }
+    #personagens{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; }
+    .card{ background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
+    .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; cursor:pointer; }
+    .name{ font-weight:700; margin-bottom:10px; cursor:pointer; }
+    .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
+    .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
+    .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
+    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
+    .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
+    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
+    .btn-remove{ background:#c0392b; color:#fff; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <h1>Painel de Status</h1>
+  <form id="addForm">
+    <input name="id" type="text" placeholder="Nome (ID)" required>
+    <input name="imagem" type="text" placeholder="URL da imagem" value="/images/portrait.png">
+    <input name="vida" type="number" value="10" placeholder="Vida">
+    <input name="vidaMax" type="number" value="10" placeholder="Vida Máxima">
+    <input name="sanidade" type="number" value="10" placeholder="Sanidade">
+    <input name="sanidadeMax" type="number" value="10" placeholder="Sanidade Máxima">
+    <input name="pe" type="number" value="2" placeholder="PE">
+    <input name="peMax" type="number" value="2" placeholder="PE Máximo">
+    <button type="submit">Adicionar Personagem</button>
+  </form>
+
+  <div id="personagens"></div>
+
+  <script>
+    const socket = io();
+    let personagens = {};
+
+    const form = document.getElementById('addForm');
+    const container = document.getElementById('personagens');
+
+    // FUNÇÃO PRINCIPAL PARA DESENHAR OS CARDS NA TELA
+    function render() {
+      container.innerHTML = ''; // Limpa a tela antes de redesenhar
+      for (const id in personagens) {
+        const p = personagens[id];
+        const vidaPct = p.vidaMax > 0 ? (p.vida / p.vidaMax) * 100 : 0;
+        const sanPct = p.sanidadeMax > 0 ? (p.sanidade / p.sanidadeMax) * 100 : 0;
+        const pePct = p.peMax > 0 ? (p.pe / p.peMax) * 100 : 0;
+
+        // Criamos o HTML do card sem nenhum 'onclick' ou 'onchange'
+        // Em vez disso, usamos atributos 'data-*' para saber o que fazer
+        const cardHTML = `
+          <div class="card" data-id="${id}">
+            <img src="${p.imagem || '/images/portrait.png'}" class="portrait" data-action="edit-image">
+            <div class="name" data-action="edit-name">${id}</div>
+
+            <div class="status">
+              <div class="status-fill vida" style="width:${vidaPct}%"></div>
+              <div class="status-label">
+                <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
+                Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
+                <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
+                <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
+              </div>
+            </div>
+
+            <div class="status">
+              <div class="status-fill sanidade" style="width:${sanPct}%"></div>
+              <div class="status-label">
+                <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
+                San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
+                <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
+                <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
+              </div>
+            </div>
+            
+            <div class="status">
+              <div class="status-fill pe" style="width:${pePct}%"></div>
+              <div class="status-label">
+                <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
+                PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
+                <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
+                <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
+              </div>
+            </div>
+
+            <button class="btn-remove" data-action="remove">Remover</button>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', cardHTML);
+      }
+    }
+    
+    // UM ÚNICO LUGAR PARA CUIDAR DE TODOS OS CLIQUES NOS CARDS
+    container.addEventListener('click', (e) => {
+      const element = e.target.closest('[data-action]');
+      if (!element) return;
+
+      const action = element.dataset.action;
+      const card = element.closest('.card');
+      const id = card.dataset.id;
+
+      switch (action) {
+        case 'edit-image': {
+          const novaUrl = prompt('Nova URL da Imagem:', personagens[id].imagem);
+          if (novaUrl) socket.emit('update', { id, imagem: novaUrl.trim() });
+          break;
+        }
+        case 'edit-name': {
+          const novoNome = prompt('Novo Nome:', id);
+          if (novoNome && novoNome.trim() !== id) {
+            socket.emit('rename', { oldId: id, newId: novoNome.trim() });
+          }
+          break;
+        }
+        case 'change-stat': {
+          const stat = element.dataset.stat;
+          const delta = parseInt(element.dataset.delta);
+          const valorAtual = personagens[id][stat];
+          socket.emit('update', { id, [stat]: valorAtual + delta });
+          break;
+        }
+        case 'remove': {
+          if (confirm(`Tem certeza que deseja remover ${id}?`)) {
+            socket.emit('remove', id);
+          }
+          break;
+        }
+      }
+    });
+
+    // UM ÚNICO LUGAR PARA CUIDAR DE MUDANÇAS NOS INPUTS
+    container.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-action="update-stat"]');
+      if (!input) return;
+
+      const id = input.closest('.card').dataset.id;
+      const stat = input.name;
+      const valor = parseInt(input.value);
+
+      if (!isNaN(valor)) {
+        socket.emit('update', { id, [stat]: valor });
+      }
+    });
+
+    // CUIDA DO FORMULÁRIO DE ADICIONAR
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const novoPersonagem = {};
+      // Transforma os dados do formulário em um objeto
+      for (let [key, value] of formData.entries()) {
+        novoPersonagem[key] = isNaN(value) || !value ? value : parseInt(value);
+      }
+      
+      if (!novoPersonagem.id) return;
+      socket.emit('add', novoPersonagem);
+      form.reset();
+      form.elements.id.focus(); // Foca no campo de nome para adicionar outro
+    });
+
+    // SOCKET.IO EVENTOS
+    socket.on('init', (data) => {
+      console.log('[CLIENT] Lista de personagens recebida.', data);
+      personagens = data || {};
+      render();
+    });
+
+    socket.on('update', (data) => {
+      console.log('[CLIENT] Atualização recebida.', data);
+      if (data && data.id && personagens[data.id]) {
+        Object.assign(personagens[data.id], data);
+        render();
+      }
+    });
+
+    socket.on('connect', () => console.log('[CLIENT] Conectado ao servidor.'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Overlay</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    @font-face {
+      font-family: "Adobe Hebrew";
+      src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
+    }
+    body { margin:0; background:transparent; font-family:"Adobe Hebrew", Arial, sans-serif; }
+    #overlays { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; padding:10px; }
+    .card { position:relative; width:720px; height:480px; }
+    .portrait { position:absolute; left:40px; top:60px; width:320px; height:320px; border-radius:50%; background-size:cover; background-position:center; border:12px solid rgba(10,10,10,0.95); }
+    .name { position:absolute; left:370px; top:36px; font-size:100px; color:#fff; transform:rotate(-8deg); text-shadow:3px 4px 6px rgba(0,0,0,0.85); }
+    .vida-large { position:absolute; left:370px; top:110px; font-size:128px; color:#b44245; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
+    .san-large { position:absolute; left:370px; top:225px; font-size:128px; color:#2477b8; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
+    .pe-badge { position:absolute; left:72px; bottom:84px; font-size:44px; color:#f1c40f; text-shadow:2px 2px 6px rgba(0,0,0,0.8); }
+  </style>
+</head>
+<body>
+  <div id="overlays"></div>
+
+  <script>
+    const socket = io();
+    let personagens = {};
+    const container = document.getElementById('overlays');
+
+    // Função para renderizar todos os overlays na tela
+    function render() {
+      container.innerHTML = '';
+      for (const id in personagens) {
+        const p = personagens[id];
+        const cardHTML = `
+          <div class="card">
+            <div class="portrait" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
+            <div class="name">${id}</div>
+            <div class="vida-large">${p.vida}/${p.vidaMax}</div>
+            <div class="san-large">${p.sanidade}/${p.sanidadeMax}</div>
+            <div class="pe-badge">${p.pe}/${p.peMax}</div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', cardHTML);
+      }
+    }
+    
+    // 1. Recebe a lista inicial de personagens
+    socket.on('init', (data) => {
+      console.log('[OVERLAY] Lista de personagens recebida.', data);
+      personagens = data || {};
+      render();
+    });
+
+    // 2. Recebe uma atualização para um personagem específico
+    socket.on('update', (data) => {
+      console.log('[OVERLAY] Atualização recebida.', data);
+      if (data && data.id && personagens[data.id]) {
+        // Mescla os dados da atualização com os dados existentes
+        Object.assign(personagens[data.id], data);
+        render(); // Re-renderiza tudo para mostrar a mudança
+      }
+    });
+
+    socket.on('connect', () => console.log('[OVERLAY] Conectado ao servidor.'));
+  </script>
+</body>
+</html>
