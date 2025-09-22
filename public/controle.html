@@ -26,11 +26,15 @@
     .btn-vis { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 16px; padding: 0 5px; opacity: 0.8; }
     .btn-vis.is-hidden { opacity: 0.3; }
 
-    /* NOVO: Estilo para o botão de abrir portrait individual */
-    .btn-open-portrait {
+    /* Estilo para os botões de ação no canto do card */
+    .card-actions {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 5px;
+      right: 5px;
+      display: flex;
+      gap: 5px;
+    }
+    .btn-card-action {
       background: rgba(255, 255, 255, 0.1);
       border: none;
       color: #fff;
@@ -48,13 +52,13 @@
   <h1>Painel de Status</h1>
   <form id="addForm">
       <input name="id" type="text" placeholder="Nome (ID)" required>
-      <input name="imagem" type="text" placeholder="URL da imagem" value="/images/portrait.png">
-      <input name="vida" type="number" value="10" placeholder="Vida">
-      <input name="vidaMax" type="number" value="10" placeholder="Vida Máxima">
-      <input name="sanidade" type="number" value="10" placeholder="Sanidade">
-      <input name="sanidadeMax" type="number" value="10" placeholder="Sanidade Máxima">
-      <input name="pe" type="number" value="2" placeholder="PE">
-      <input name="peMax" type="number" value="2" placeholder="PE Máximo">
+      <input name="imagem" type="text" placeholder="URL da imagem" >
+      <input name="vida" type="number" placeholder="Vida">
+      <input name="vidaMax" type="number" placeholder="Vida Máxima">
+      <input name="sanidade" type="number"  placeholder="Sanidade">
+      <input name="sanidadeMax" type="number"  placeholder="Sanidade Máxima">
+      <input name="pe" type="number"  placeholder="PE">
+      <input name="peMax" type="number"  placeholder="PE Máximo">
       <button type="submit">Adicionar Personagem</button>
   </form>
 
@@ -74,10 +78,13 @@
         const sanPct = p.sanidadeMax > 0 ? (p.sanidade / p.sanidadeMax) * 100 : 0;
         const pePct = p.peMax > 0 ? (p.pe / p.peMax) * 100 : 0;
 
-        // ALTERADO: Adicionado o botão para abrir o portrait individual
         const cardHTML = `
           <div class="card" data-id="${id}">
-            <button class="btn-open-portrait" data-action="open-portrait" title="Abrir portrait individual">👤</button>
+            <div class="card-actions">
+              <button class="btn-card-action" data-action="copy-link" title="Copiar link da ficha do jogador">🔗</button>
+              <button class="btn-card-action" data-action="open-portrait" title="Abrir overlay para stream">👤</button>
+            </div>
+            
             <img src="${p.imagem || '/images/portrait.png'}" class="portrait" data-action="edit-image">
             <div class="name" data-action="edit-name">${id}</div>
 
@@ -124,12 +131,11 @@
 
       const action = element.dataset.action;
       const card = element.closest('.card');
-      const id = card?.dataset.id; // Usamos '?' para o caso de o card não ser encontrado
+      const id = card?.dataset.id;
 
-      if (!id) return; // Se não encontrou um ID de personagem, não faz nada
+      if (!id) return;
 
       switch (action) {
-        // ... cases anteriores ...
         case 'edit-image': {
           const novaUrl = prompt('Nova URL da Imagem:', personagens[id].imagem);
           if (novaUrl) socket.emit('update', { id, imagem: novaUrl.trim() });
@@ -162,18 +168,25 @@
           socket.emit('update', { id, [statVisivelKey]: !estadoAtual });
           break;
         }
-        // NOVO: Lógica para abrir a janela do portrait
         case 'open-portrait': {
-          // Codifica o nome do personagem para ser seguro na URL
           const encodedId = encodeURIComponent(id);
-          // Abre uma nova janela com a URL do overlay, passando o nome do personagem
           window.open(`/overlay.html?personagem=${encodedId}`);
+          break;
+        }
+        case 'copy-link': {
+          const encodedId = encodeURIComponent(id);
+          const urlFicha = `${window.location.origin}/ficha.html?personagem=${encodedId}`;
+          navigator.clipboard.writeText(urlFicha).then(() => {
+            alert(`Link para a ficha de ${id} copiado!\n${urlFicha}`);
+          }).catch(err => {
+            console.error('Erro ao copiar link: ', err);
+            alert('Não foi possível copiar o link.');
+          });
           break;
         }
       }
     });
 
-    // O resto do script (listeners de 'change', 'submit' e socket) continua o mesmo...
     container.addEventListener('change', (e) => {
       const input = e.target.closest('[data-action="update-stat"]');
       if (!input) return;

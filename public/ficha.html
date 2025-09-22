@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>Ficha de Personagem</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    /* Estilos copiados do controle.html para consistência visual */
+    @font-face { font-family:"Adobe Hebrew"; src: url("/fonts/adobe-hebrew-regular.otf") format("opentype"); }
+    body{ font-family:"Adobe Hebrew", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; display: flex; justify-content: center; align-items: center; min-height: 90vh; }
+    #personagem-container{ display:flex; justify-content:center; }
+    .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
+    .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; }
+    .name{ font-weight:700; margin-bottom:10px; font-size: 1.2em; }
+    .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
+    .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
+    .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
+    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
+    .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
+    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
+    .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
+    .waiting-message { color: #ccc; font-size: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div id="personagem-container"></div>
+
+  <script>
+    const socket = io();
+    let personagem = null; // Vamos guardar os dados do nosso personagem aqui
+    const container = document.getElementById('personagem-container');
+
+    const params = new URLSearchParams(window.location.search);
+    const personagemId = params.get('personagem');
+
+    function render() {
+      if (!personagemId) {
+        container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
+        return;
+      }
+      
+      if (!personagem) {
+        container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
+        return;
+      }
+      
+      const p = personagem;
+      const vidaPct = p.vidaMax > 0 ? (p.vida / p.vidaMax) * 100 : 0;
+      const sanPct = p.sanidadeMax > 0 ? (p.sanidade / p.sanidadeMax) * 100 : 0;
+      const pePct = p.peMax > 0 ? (p.pe / p.peMax) * 100 : 0;
+
+      // HTML do card com inputs e botões para o jogador
+      const cardHTML = `
+        <div class="card" data-id="${personagemId}">
+          <img src="${p.imagem || '/images/portrait.png'}" class="portrait">
+          <div class="name">${personagemId}</div>
+
+          <div class="status ${p.vidaVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill vida" style="width:${vidaPct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
+              Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="status ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill sanidade" style="width:${sanPct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
+              San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="status ${p.peVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill pe" style="width:${pePct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
+              PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+      `;
+      container.innerHTML = cardHTML;
+    }
+    
+    // --- Lógica para interagir com o servidor ---
+
+    container.addEventListener('click', (e) => {
+      const element = e.target.closest('[data-action="change-stat"]');
+      if (!element || !personagem) return;
+      
+      const stat = element.dataset.stat;
+      const delta = parseInt(element.dataset.delta);
+      const valorAtual = personagem[stat];
+      
+      // Envia a atualização para o servidor
+      socket.emit('update', { id: personagemId, [stat]: valorAtual + delta });
+    });
+
+    container.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-action="update-stat"]');
+      if (!input || !personagem) return;
+      
+      const stat = input.name;
+      const valor = parseInt(input.value);
+
+      if (!isNaN(valor)) {
+        // Envia a atualização para o servidor
+        socket.emit('update', { id: personagemId, [stat]: valor });
+      }
+    });
+
+    socket.on('init', (data) => {
+      if (data && data[personagemId]) {
+        personagem = data[personagemId];
+        render();
+      }
+    });
+
+    socket.on('update', (data) => {
+      // Se a atualização for para o nosso personagem, atualizamos os dados e renderizamos
+      if (data && data.id === personagemId) {
+        Object.assign(personagem, data);
+        render();
+      }
+    });
+
+    socket.on('connect', () => {
+        console.log('[FICHA] Conectado ao servidor.');
+        if (personagemId) {
+            document.title = `Ficha - ${personagemId}`;
+        }
+    });
+  </script>
+</body>
+</html>
