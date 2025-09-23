@@ -6,7 +6,7 @@ const path = require('path');
 const session = require('express-session');
 
 // --- CONFIGURAÇÃO ---
-const MASTER_PASSWORD = 'sua_senha_secreta'; // <-- TROQUE PELA SUA SENHA DE MESTRE
+const MASTER_PASSWORD = 'RPGSEGURO'; // <-- TROQUE PELA SUA SENHA DE MESTRE
 const PORT = process.env.PORT || 3000;
 // --------------------
 
