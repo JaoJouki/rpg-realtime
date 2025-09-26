@@ -3,12 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <title>Painel de Controle</title>
-
-  <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
-
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    /* Estilos anteriores... */
     @font-face { font-family:"Adobe Hebrew"; src: url("/fonts/adobe-hebrew-regular.otf") format("opentype"); }
     body{ font-family:"Adobe Hebrew", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; }
     h1{ text-align:center; }
@@ -28,27 +24,8 @@
     .btn-remove{ background:#c0392b; color:#fff; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; margin-top:8px; }
     .btn-vis { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 16px; padding: 0 5px; opacity: 0.8; }
     .btn-vis.is-hidden { opacity: 0.3; }
-
-    /* Estilo para os botões de ação no canto do card */
-    .card-actions {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      display: flex;
-      gap: 5px;
-    }
-    .btn-card-action {
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      color: #fff;
-      cursor: pointer;
-      font-size: 18px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      line-height: 30px;
-      text-align: center;
-    }
+    .card-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
+    .btn-card-action { background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; font-size: 18px; width: 30px; height: 30px; border-radius: 50%; line-height: 30px; text-align: center; }
   </style>
 </head>
 <body>
@@ -77,9 +54,11 @@
       container.innerHTML = '';
       for (const id in personagens) {
         const p = personagens[id];
-        const vidaPct = p.vidaMax > 0 ? (p.vida / p.vidaMax) * 100 : 0;
-        const sanPct = p.sanidadeMax > 0 ? (p.sanidade / p.sanidadeMax) * 100 : 0;
-        const pePct = p.peMax > 0 ? (p.pe / p.peMax) * 100 : 0;
+        
+        // A barra visual é limitada em 100%, mesmo que o valor passe do máximo.
+        const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
+        const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
+        const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
 
         const cardHTML = `
           <div class="card" data-id="${id}">
@@ -131,11 +110,9 @@
     container.addEventListener('click', (e) => {
       const element = e.target.closest('[data-action]');
       if (!element) return;
-
       const action = element.dataset.action;
       const card = element.closest('.card');
       const id = card?.dataset.id;
-
       if (!id) return;
 
       switch (action) {
@@ -151,26 +128,15 @@
           }
           break;
         }
-        // ***** INÍCIO DA ALTERAÇÃO *****
         case 'change-stat': {
           const stat = element.dataset.stat;
           const delta = parseInt(element.dataset.delta);
           const p = personagens[id];
           let novoValor = p[stat] + delta;
-          const maxValor = p[`${stat}Max`];
-
-          // Valida para não passar do máximo ou ser menor que 0
-          if (maxValor !== undefined && novoValor > maxValor) {
-            novoValor = maxValor;
-          }
-          if (novoValor < 0) {
-            novoValor = 0;
-          }
-
+          if (novoValor < 0) novoValor = 0;
           socket.emit('update', { id, [stat]: novoValor });
           break;
         }
-        // ***** FIM DA ALTERAÇÃO *****
         case 'remove': {
           if (confirm(`Tem certeza que deseja remover ${id}?`)) {
             socket.emit('remove', id);
@@ -180,59 +146,37 @@
         case 'toggle-visibility': {
           const stat = element.dataset.stat;
           const statVisivelKey = `${stat}Visivel`;
-          const estadoAtual = personagens[id][statVisivelKey];
-          socket.emit('update', { id, [statVisivelKey]: !estadoAtual });
+          socket.emit('update', { id, [statVisivelKey]: !personagens[id][statVisivelKey] });
           break;
         }
         case 'open-portrait': {
-          const encodedId = encodeURIComponent(id);
-          window.open(`/overlay.html?personagem=${encodedId}`);
+          window.open(`/overlay.html?personagem=${encodeURIComponent(id)}`);
           break;
         }
         case 'copy-link': {
-          const encodedId = encodeURIComponent(id);
-          const urlFicha = `${window.location.origin}/ficha.html?personagem=${encodedId}`;
+          const urlFicha = `${window.location.origin}/ficha.html?personagem=${encodeURIComponent(id)}`;
           navigator.clipboard.writeText(urlFicha).then(() => {
             alert(`Link para a ficha de ${id} copiado!\n${urlFicha}`);
-          }).catch(err => {
-            console.error('Erro ao copiar link: ', err);
-            alert('Não foi possível copiar o link.');
           });
           break;
         }
       }
     });
 
-    // ***** INÍCIO DA ALTERAÇÃO *****
     container.addEventListener('change', (e) => {
       const input = e.target.closest('[data-action="update-stat"]');
       if (!input) return;
       const id = input.closest('.card').dataset.id;
       const stat = input.name;
       let valor = parseInt(input.value);
-      
       if (!isNaN(valor)) {
-        const p = personagens[id];
-        // Para os status atuais (vida, san, pe), verifica o máximo correspondente
-        if (stat === 'vida' || stat === 'sanidade' || stat === 'pe') {
-            const maxValor = p[`${stat}Max`];
-            if (maxValor !== undefined && valor > maxValor) {
-                valor = maxValor;
-            }
-        }
-
-        // Garante que o valor não seja negativo
         if (valor < 0) {
-            valor = 0;
+          valor = 0;
+          input.value = valor;
         }
-        
-        // Sincroniza o valor no campo de input caso ele tenha sido corrigido
-        input.value = valor;
-
         socket.emit('update', { id, [stat]: valor });
       }
     });
-    // ***** FIM DA ALTERAÇÃO *****
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
