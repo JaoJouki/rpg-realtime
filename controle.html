@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <title>Painel de Controle</title>
+
+  <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
+
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     /* Estilos anteriores... */
@@ -148,13 +151,26 @@
           }
           break;
         }
+        // ***** INÍCIO DA ALTERAÇÃO *****
         case 'change-stat': {
           const stat = element.dataset.stat;
           const delta = parseInt(element.dataset.delta);
-          const valorAtual = personagens[id][stat];
-          socket.emit('update', { id, [stat]: valorAtual + delta });
+          const p = personagens[id];
+          let novoValor = p[stat] + delta;
+          const maxValor = p[`${stat}Max`];
+
+          // Valida para não passar do máximo ou ser menor que 0
+          if (maxValor !== undefined && novoValor > maxValor) {
+            novoValor = maxValor;
+          }
+          if (novoValor < 0) {
+            novoValor = 0;
+          }
+
+          socket.emit('update', { id, [stat]: novoValor });
           break;
         }
+        // ***** FIM DA ALTERAÇÃO *****
         case 'remove': {
           if (confirm(`Tem certeza que deseja remover ${id}?`)) {
             socket.emit('remove', id);
@@ -187,16 +203,37 @@
       }
     });
 
+    // ***** INÍCIO DA ALTERAÇÃO *****
     container.addEventListener('change', (e) => {
       const input = e.target.closest('[data-action="update-stat"]');
       if (!input) return;
       const id = input.closest('.card').dataset.id;
       const stat = input.name;
-      const valor = parseInt(input.value);
+      let valor = parseInt(input.value);
+      
       if (!isNaN(valor)) {
+        const p = personagens[id];
+        // Para os status atuais (vida, san, pe), verifica o máximo correspondente
+        if (stat === 'vida' || stat === 'sanidade' || stat === 'pe') {
+            const maxValor = p[`${stat}Max`];
+            if (maxValor !== undefined && valor > maxValor) {
+                valor = maxValor;
+            }
+        }
+
+        // Garante que o valor não seja negativo
+        if (valor < 0) {
+            valor = 0;
+        }
+        
+        // Sincroniza o valor no campo de input caso ele tenha sido corrigido
+        input.value = valor;
+
         socket.emit('update', { id, [stat]: valor });
       }
     });
+    // ***** FIM DA ALTERAÇÃO *****
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const formData = new FormData(form);
@@ -209,16 +246,19 @@
       form.reset();
       form.elements.id.focus();
     });
+
     socket.on('init', (data) => {
       personagens = data || {};
       render();
     });
+
     socket.on('update', (data) => {
       if (data && data.id && personagens[data.id]) {
         Object.assign(personagens[data.id], data);
         render();
       }
     });
+
     socket.on('connect', () => console.log('[CLIENT] Conectado ao servidor.'));
   </script>
 </body>

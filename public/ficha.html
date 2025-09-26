@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <title>Ficha de Personagem</title>
+
+<link rel="icon" href="/images/icon.jpg" type="image/jpeg">
+
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     /* Estilos copiados do controle.html para consistência visual */
@@ -92,16 +95,26 @@
     
     // --- Lógica para interagir com o servidor ---
 
+    // ***** INÍCIO DA ALTERAÇÃO *****
     container.addEventListener('click', (e) => {
       const element = e.target.closest('[data-action="change-stat"]');
       if (!element || !personagem) return;
       
       const stat = element.dataset.stat;
       const delta = parseInt(element.dataset.delta);
-      const valorAtual = personagem[stat];
+      let novoValor = personagem[stat] + delta;
+      const maxValor = personagem[`${stat}Max`];
+
+      // Valida para não passar do máximo ou ser menor que 0
+      if (maxValor !== undefined && novoValor > maxValor) {
+        novoValor = maxValor;
+      }
+      if (novoValor < 0) {
+        novoValor = 0;
+      }
       
       // Envia a atualização para o servidor
-      socket.emit('update', { id: personagemId, [stat]: valorAtual + delta });
+      socket.emit('update', { id: personagemId, [stat]: novoValor });
     });
 
     container.addEventListener('change', (e) => {
@@ -109,17 +122,37 @@
       if (!input || !personagem) return;
       
       const stat = input.name;
-      const valor = parseInt(input.value);
+      let valor = parseInt(input.value);
 
       if (!isNaN(valor)) {
+        // Para os status atuais (vida, san, pe), verifica o máximo correspondente
+        if (stat === 'vida' || stat === 'sanidade' || stat === 'pe') {
+            const maxValor = personagem[`${stat}Max`];
+            if (maxValor !== undefined && valor > maxValor) {
+                valor = maxValor;
+            }
+        }
+        
+        // Garante que o valor não seja negativo
+        if (valor < 0) {
+            valor = 0;
+        }
+
+        // Sincroniza o valor no campo de input caso ele tenha sido corrigido
+        input.value = valor;
+
         // Envia a atualização para o servidor
         socket.emit('update', { id: personagemId, [stat]: valor });
       }
     });
+    // ***** FIM DA ALTERAÇÃO *****
 
     socket.on('init', (data) => {
       if (data && data[personagemId]) {
         personagem = data[personagemId];
+        render();
+      } else { // Caso o personagem não exista mais (foi removido), limpa os dados
+        personagem = null;
         render();
       }
     });
@@ -127,6 +160,10 @@
     socket.on('update', (data) => {
       // Se a atualização for para o nosso personagem, atualizamos os dados e renderizamos
       if (data && data.id === personagemId) {
+        // Garante que a variável 'personagem' exista antes de tentar atribuir
+        if (!personagem) {
+            personagem = {};
+        }
         Object.assign(personagem, data);
         render();
       }
@@ -137,6 +174,8 @@
         if (personagemId) {
             document.title = `Ficha - ${personagemId}`;
         }
+        // Quando reconectar, pede uma atualização inicial para garantir os dados mais recentes
+        socket.emit('init-request'); 
     });
   </script>
 </body>

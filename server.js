@@ -94,16 +94,48 @@ io.on('connection', async (socket) => {
     io.emit('init', await carregarPersonagens());
   });
 
+  // ***** INÍCIO DA ALTERAÇÃO *****
   socket.on('update', async (data) => {
     const { id, ...campos } = data;
     if (!id) return;
 
-    // Atualiza no banco de dados
-    await personagensCollection.updateOne({ id: id }, { $set: campos });
+    // 1. Busca o personagem atual no banco para obter os valores máximos
+    const personagemAtual = await personagensCollection.findOne({ id: id });
+    if (!personagemAtual) return; // Se o personagem não for encontrado, interrompe
 
-    // Avisa todos os clientes
-    io.emit('update', { id, ...campos });
+    const camposParaAtualizar = { ...campos };
+
+    // 2. Itera sobre os status para validar os limites
+    ['vida', 'sanidade', 'pe'].forEach(stat => {
+      // Verifica se o campo que estamos tentando atualizar existe no "data"
+      if (camposParaAtualizar[stat] !== undefined) {
+        const maxStatKey = `${stat}Max`; // ex: "vidaMax"
+        const maxValor = personagemAtual[maxStatKey];
+        let valorAtualizado = camposParaAtualizar[stat];
+
+        // 3. Garante que o valor não seja menor que 0
+        if (valorAtualizado < 0) {
+          valorAtualizado = 0;
+        }
+
+        // 4. Garante que o valor não ultrapasse o máximo (se o máximo existir)
+        if (maxValor !== undefined && maxValor !== null && valorAtualizado > maxValor) {
+          valorAtualizado = maxValor;
+        }
+        
+        // 5. Atribui o valor corrigido ao objeto que será salvo
+        camposParaAtualizar[stat] = valorAtualizado;
+      }
+    });
+
+    // 6. Atualiza no banco de dados com os valores já validados
+    await personagensCollection.updateOne({ id: id }, { $set: camposParaAtualizar });
+
+    // 7. Avisa todos os clientes com os dados corrigidos
+    io.emit('update', { id, ...camposParaAtualizar });
   });
+  // ***** FIM DA ALTERAÇÃO *****
+
 
   socket.on('rename', async ({ oldId, newId }) => {
     if (!oldId || !newId) return;
