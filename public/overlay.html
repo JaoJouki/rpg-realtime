@@ -10,19 +10,35 @@
   <style>
     /* Estilos anteriores... */
     @font-face {
-      font-family: "Adobe Hebrew";
-      src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
+      font-family: "Heroes Assemble";
+      src: url("/fonts/heroesassemble3dital.ttf") format("truetype");
     }
-    body { margin:0; background:transparent; font-family:"Adobe Hebrew", Arial, sans-serif; }
+    body { margin:0; background:transparent; font-family:"Heroes Assemble", Arial, sans-serif; }
     #overlays { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; padding:10px; }
     .card { position:relative; width:720px; height:480px; }
-    .portrait { position:absolute; left:40px; top:60px; width:320px; height:320px; border-radius:50%; background-size:cover; background-position:center; border:12px solid rgba(10,10,10,0.95); }
+    .portrait { 
+        position:absolute; 
+        left:40px; 
+        top:60px; 
+        width:320px; 
+        height:320px; 
+        border-radius:50%; 
+        background-size:cover; 
+        background-position:center; 
+        border:12px solid rgba(10,10,10,0.95);
+        /* Adicionada transição para o efeito de fade out */
+        transition: filter 0.5s ease-in-out;
+    }
+    /* NOVO: Classe para o efeito de "morte" */
+    .portrait.dead {
+        filter: grayscale(100%) brightness(0);
+    }
     .name { position:absolute; left:370px; top:36px; font-size:100px; color:#fff; transform:rotate(-8deg); text-shadow:3px 4px 6px rgba(0,0,0,0.85); }
     .vida-large { position:absolute; left:370px; top:110px; font-size:128px; color:#b44245; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
     .san-large { position:absolute; left:370px; top:225px; font-size:128px; color:#2477b8; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
     .pe-badge { position:absolute; left:72px; bottom:84px; font-size:44px; color:#f1c40f; text-shadow:2px 2px 6px rgba(0,0,0,0.8); }
     .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
-    /* NOVO: Estilo para mensagem de espera */
+    /* Estilo para mensagem de espera */
     .waiting-message {
         color: #ccc;
         font-size: 24px;
@@ -39,28 +55,27 @@
     let personagens = {};
     const container = document.getElementById('overlays');
 
-    // NOVO: Pega o nome do personagem da URL
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
 
-    // ALTERADO: A função render agora mostra APENAS o personagem especificado na URL
     function render() {
-      container.innerHTML = ''; // Limpa sempre
+      container.innerHTML = ''; 
 
-      // Se não houver um ID na URL, não faz nada
       if (!personagemId) {
         container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
         return;
       }
       
-      // Procura pelo personagem específico nos dados que temos
       const p = personagens[personagemId];
 
-      // Se o personagem existir, renderiza o card dele
       if (p) {
+        // NOVO: Verifica se a vida é 0 e adiciona a classe 'dead'
+        const isDead = p.vida <= 0;
+        const portraitClass = isDead ? 'portrait dead' : 'portrait';
+
         const cardHTML = `
           <div class="card">
-            <div class="portrait" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
+            <div class="${portraitClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
             <div class="name">${personagemId}</div>
             <div class="vida-large ${p.vidaVisivel === false ? 'status-hidden' : ''}">${p.vida}/${p.vidaMax}</div>
             <div class="san-large ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">${p.sanidade}/${p.sanidadeMax}</div>
@@ -69,21 +84,18 @@
         `;
         container.innerHTML = cardHTML;
       } else {
-        // Se o personagem não for encontrado, mostra uma mensagem
         container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
       }
     }
     
-    // Os listeners do socket continuam iguais, apenas recebem os dados e chamam o render.
     socket.on('init', (data) => {
       personagens = data || {};
-      render(); // O novo render vai filtrar e mostrar o personagem correto
+      render();
     });
 
     socket.on('update', (data) => {
       if (data && data.id && personagens[data.id]) {
         Object.assign(personagens[data.id], data);
-        // Se a atualização for para o nosso personagem, re-renderiza
         if (data.id === personagemId) {
           render();
         }
@@ -92,7 +104,6 @@
 
     socket.on('connect', () => {
         console.log('[OVERLAY] Conectado ao servidor.');
-        // Define o título da página para o nome do personagem
         if (personagemId) {
             document.title = `Overlay - ${personagemId}`;
         }
