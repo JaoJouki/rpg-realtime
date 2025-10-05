@@ -6,7 +6,7 @@
 
   <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn/socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     @font-face {
       font-family: "Heroes Assemble";
@@ -17,10 +17,6 @@
 
     .card { position:relative; width:720px; height:480px; }
 
-    /*
-      NOVO: Este é o container que vai segurar a imagem.
-      Ele é o círculo que vemos na tela e vai esconder o que "vazar" da imagem.
-    */
     .portrait-container {
         position: absolute;
         left: 40px;
@@ -28,41 +24,34 @@
         width: 320px;
         height: 320px;
         border-radius: 50%;
-        overflow: hidden; /* A mágica acontece aqui: esconde tudo que sair dos limites */
+        overflow: hidden; 
         z-index: 1;
     }
 
-    /*
-      ALTERADO: A imagem agora ocupa 100% do container e não precisa mais ser um círculo,
-      pois o container já faz esse papel.
-    */
     .portrait-image {
         width: 100%;
         height: 100%;
         background-size: cover;
         background-position: center;
-        /* O ::after (efeito de morte) precisa de um posicionamento de referência */
         position: relative;
+        /* ALTERAÇÃO: Adicionamos a transição para a propriedade 'filter' */
+        transition: filter 1s ease-in-out;
     }
 
-    /* A borda fica por cima de tudo */
     .portrait-border {
         position:absolute;
-        left:40px;
-        top:60px;
+        left:30px;
+        top:40px;
         width:320px;
         height:320px;
         border-radius:50%;
         border:12px solid rgba(10,10,10,0.95);
         background-color: transparent;
-        z-index: 2; /* Garante que a borda fique acima da imagem */
-        pointer-events: none; /* Impede que a borda bloqueie cliques, se houver */
+        z-index: 2; 
+        pointer-events: none;
     }
-
-    /*
-      ALTERADO: O pseudo-elemento agora cria a silhueta preta.
-      Ele cobre a imagem dentro do container.
-    */
+    
+    /* REMOVIDO: O pseudo-elemento que criava a silhueta preta não é mais necessário.
     .portrait-image::after {
         content: '';
         position: absolute;
@@ -73,13 +62,21 @@
         background-color: black;
         opacity: 0;
         transition: opacity 1s ease-in-out;
-        z-index: 3; /* Garante que a silhueta fique sobre a imagem */
+        z-index: 3;
     }
+    */
 
-    /* Quando o personagem morre, a silhueta preta fica visível */
+    /* ALTERAÇÃO: Agora aplicamos o filtro diretamente na imagem. */
+    /* Quando o personagem morre, a imagem em si fica preta. */
+    .portrait-image.dead {
+        filter: grayscale(100%) brightness(0);
+    }
+    
+    /* REMOVIDO: A regra antiga para o estado de morte foi substituída.
     .portrait-image.dead::after {
         opacity: 1;
     }
+    */
 
     .name {
         position:absolute;
@@ -104,10 +101,9 @@
         margin-top: 50px;
     }
 
-    /* ANIMAÇÃO DE RESPIRAR PARA A IMAGEM */
     @keyframes breath-portrait {
         0% { transform: scale(1.0); }
-        50% { transform: scale(1.05); } /* Aumentei um pouco para o efeito ficar mais visível */
+        50% { transform: scale(1.05); }
         100% { transform: scale(1.0); }
     }
 
@@ -115,7 +111,6 @@
         animation: breath-portrait 4s ease-in-out infinite;
     }
 
-    /* PAUSA A ANIMAÇÃO QUANDO O CARD ESTIVER COM A CLASSE 'morto' */
     .card.morto .portrait-image.breath {
         animation-play-state: paused;
     }
@@ -145,12 +140,9 @@
 
       if (p) {
         const isDead = p.vida <= 0;
-        // A classe 'dead' vai para a imagem, e a 'breath' também, para controlar a animação e o overlay.
         const portraitImageClass = isDead ? 'portrait-image dead' : 'portrait-image breath';
-        // A classe 'morto' vai para o card para pausar a animação.
         const cardClass = isDead ? 'card morto' : 'card';
 
-        // ALTERADO: A estrutura do HTML para o retrato foi atualizada
         const cardHTML = `
           <div class="${cardClass}" data-personagem-id="${personagemId}">
             <div class="portrait-container">
