@@ -9,11 +9,85 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     @font-face { font-family:"Heroes Assemble 3D Italic"; src: url("/fonts/heroesassemble3dital.ttf") format("truetype"); }
-    body{ font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; }
+    body{ font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; padding-bottom: 80px; /* Adiciona espaço para não sobrepor o rodapé */ }
     h1{ text-align:center; }
-    #addForm{ background:#1f1f1f; padding:18px; border-radius:12px; max-width:700px; margin:0 auto 18px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    #addForm input, #addForm button{ padding:8px; border-radius:6px; border:0; background: #333; color: #fff;}
-    #addForm button{ grid-column:span 2; background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; }
+
+    /* --- ESTILOS DO MODAL (NOVO) --- */
+    .modal-overlay {
+        display: none; /* Começa escondido */
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #addForm{
+        background:#1f1f1f;
+        padding: 25px;
+        padding-top: 60px; /* Espaço para o título e botão de fechar */
+        border-radius:12px;
+        width: 100%;
+        max-width: 600px;
+        margin: 0;
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        gap:15px;
+        position: relative;
+        box-shadow:0 6px 18px rgba(0,0,0,0.4);
+    }
+    #addForm input {
+        padding: 12px;
+        border-radius:6px;
+        border:0;
+        background: #333;
+        color: #fff;
+        font-size: 1em;
+    }
+    #addForm button[type="submit"] {
+        grid-column:span 2;
+        background:#27ae60;
+        color:#fff;
+        cursor:pointer;
+        font-weight: bold;
+        padding: 12px;
+        border-radius:6px;
+        border:0;
+        font-size: 1.1em;
+    }
+    .form-header {
+        position: absolute;
+        top: 15px;
+        left: 25px;
+        right: 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .form-header h2 {
+        margin: 0;
+        font-size: 1.5em;
+    }
+    .close-btn {
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 2.5rem;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+        font-weight: bold;
+    }
+    .close-btn:hover {
+        color: #fff;
+    }
+    /* --- FIM ESTILOS DO MODAL --- */
+
+
     #personagens{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; }
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; cursor:pointer; }
@@ -29,11 +103,47 @@
     .btn-vis.is-hidden { opacity: 0.3; }
     .card-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
     .btn-card-action { background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; font-size: 18px; width: 30px; height: 30px; border-radius: 50%; line-height: 30px; text-align: center; }
+
+    /* --- ESTILOS DO RODAPÉ (NOVO) --- */
+    footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: #0a0a0a;
+        padding: 10px 0;
+        text-align: center;
+        border-top: 1px solid #333;
+        z-index: 100;
+    }
+
+    #showAddFormBtn {
+        font-family: "Heroes Assemble 3D Italic", Arial, sans-serif;
+        background-color: transparent;
+        border: none;
+        color: #fff;
+        padding: 10px 20px;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: color 0.3s;
+        letter-spacing: 1px;
+    }
+
+    #showAddFormBtn:hover {
+        color: #27ae60;
+    }
+    /* --- FIM ESTILOS DO RODAPÉ --- */
   </style>
 </head>
 <body>
   <h1>Painel de Status</h1>
-  <form id="addForm">
+
+  <div id="addFormModal" class="modal-overlay">
+    <form id="addForm">
+      <div class="form-header">
+        <h2>Adicionar Personagem</h2>
+        <button type="button" class="close-btn">&times;</button>
+      </div>
       <input name="id" type="text" placeholder="Nome (ID)" required>
       <input name="imagem" type="text" placeholder="URL da imagem" >
       <input name="vida" type="number" placeholder="Vida">
@@ -43,9 +153,15 @@
       <input name="pe" type="number"  placeholder="PE">
       <input name="peMax" type="number"  placeholder="PE Máximo">
       <button type="submit">Adicionar Personagem</button>
-  </form>
+    </form>
+  </div>
+
 
   <div id="personagens"></div>
+
+  <footer>
+    <button id="showAddFormBtn">ADICIONAR PERSONAGENS</button>
+  </footer>
 
   <script>
     const socket = io();
@@ -53,12 +169,35 @@
     const form = document.getElementById('addForm');
     const container = document.getElementById('personagens');
 
+    // Elementos do Modal
+    const addFormModal = document.getElementById('addFormModal');
+    const showAddFormBtn = document.getElementById('showAddFormBtn');
+    const closeBtn = addFormModal.querySelector('.close-btn');
+
+    // Função para abrir o modal
+    showAddFormBtn.addEventListener('click', () => {
+      addFormModal.style.display = 'flex';
+    });
+
+    // Função para fechar o modal
+    const closeModal = () => {
+      addFormModal.style.display = 'none';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    addFormModal.addEventListener('click', (e) => {
+        // Fecha o modal se o clique for no fundo escuro (o próprio overlay)
+        if (e.target === addFormModal) {
+            closeModal();
+        }
+    });
+
+
     function render() {
       container.innerHTML = '';
       for (const id in personagens) {
         const p = personagens[id];
-        
-        // A barra visual é limitada em 100%, mesmo que o valor passe do máximo.
+
         const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
         const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
         const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
@@ -69,7 +208,7 @@
               <button class="btn-card-action" data-action="copy-link" title="Copiar link da ficha do jogador">🔗</button>
               <button class="btn-card-action" data-action="open-portrait" title="Abrir overlay para stream">👤</button>
             </div>
-            
+
             <img src="${p.imagem || '/images/portrait.png'}" class="portrait" data-action="edit-image">
             <div class="name" data-action="edit-name">${id}</div>
 
@@ -109,7 +248,7 @@
         container.insertAdjacentHTML('beforeend', cardHTML);
       }
     }
-    
+
     container.addEventListener('click', (e) => {
       const element = e.target.closest('[data-action]');
       if (!element) return;
@@ -192,6 +331,7 @@
       socket.emit('add', novoPersonagem);
       form.reset();
       form.elements.id.focus();
+      closeModal(); // Fecha o modal após adicionar
     });
 
     socket.on('init', (data) => {
