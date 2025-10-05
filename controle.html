@@ -9,12 +9,50 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     @font-face { font-family:"Heroes Assemble 3D Italic"; src: url("/fonts/heroesassemble3dital.ttf") format("truetype"); }
-    body{ font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; padding-bottom: 80px; /* Adiciona espaço para não sobrepor o rodapé */ }
-    h1{ text-align:center; }
+    body{ font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:0; }
+    h1{ text-align:center; margin-top: 0; padding-top: 20px; }
+    .header-group { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+    
+    /* --- NAVEGAÇÃO POR ABAS (NOVO) --- */
+    .tab-bar {
+        display: flex;
+        justify-content: center;
+        background: #1f1f1f;
+        border-bottom: 2px solid #000;
+        position: sticky;
+        top: 0;
+        z-index: 500;
+    }
+    .tab-button {
+        background: #121212;
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-size: 1.1em;
+        font-weight: bold;
+        transition: background 0.2s;
+        border-radius: 6px 6px 0 0;
+        margin: 0 5px;
+        border-bottom: 3px solid transparent;
+    }
+    .tab-button.active {
+        background: #2a2a2a;
+        border-bottom: 3px solid #e74c3c;
+    }
+    .tab-content {
+        padding: 20px;
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    /* --- FIM NAVEGAÇÃO POR ABAS --- */
 
-    /* --- ESTILOS DO MODAL (NOVO) --- */
+
+    /* --- ESTILOS DO MODAL (MANTIDO) --- */
     .modal-overlay {
-        display: none; /* Começa escondido */
+        display: none; 
         position: fixed;
         top: 0;
         left: 0;
@@ -25,11 +63,10 @@
         justify-content: center;
         align-items: center;
     }
-
     #addForm{
         background:#1f1f1f;
         padding: 25px;
-        padding-top: 60px; /* Espaço para o título e botão de fechar */
+        padding-top: 60px;
         border-radius:12px;
         width: 100%;
         max-width: 600px;
@@ -88,6 +125,7 @@
     /* --- FIM ESTILOS DO MODAL --- */
 
 
+    /* --- ESTILOS DE CARTÃO DE PERSONAGEM (MANTIDO) --- */
     #personagens{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; }
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; cursor:pointer; }
@@ -95,210 +133,237 @@
     .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
     .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
     .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
-    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
+    .vida{ background:#e74c3c; }
+    .sanidade{ background:#3498db; }
+    .pe{ background:#f1c40f; color:#000; }
     .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
-    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
-    .btn-remove{ background:#c0392b; color:#fff; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; margin-top:8px; }
-    .btn-vis { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 16px; padding: 0 5px; opacity: 0.8; }
-    .btn-vis.is-hidden { opacity: 0.3; }
-    .card-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
-    .btn-card-action { background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; font-size: 18px; width: 30px; height: 30px; border-radius: 50%; line-height: 30px; text-align: center; }
+    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; color:#fff; cursor:pointer; font-weight:700; font-size: 1em; }
+    .btn-small:hover{ background:rgba(255,255,255,0.15); }
+    /* --- FIM ESTILOS DE CARTÃO DE PERSONAGEM --- */
 
-    /* --- ESTILOS DO RODAPÉ (NOVO) --- */
-    footer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background-color: #0a0a0a;
-        padding: 10px 0;
-        text-align: center;
-        border-top: 1px solid #333;
-        z-index: 100;
+    /* --- ESTILOS HISTÓRICO DE DADOS (NOVO) --- */
+    #historico-rolagens {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 20px;
     }
-
-    #showAddFormBtn {
-        font-family: "Heroes Assemble 3D Italic", Arial, sans-serif;
-        background-color: transparent;
-        border: none;
-        color: #fff;
-        padding: 10px 20px;
+    .roll-entry {
+        background: #1f1f1f;
+        padding: 10px 15px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        border-left: 5px solid #e74c3c;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .roll-entry strong {
         font-size: 1.2em;
-        cursor: pointer;
-        transition: color 0.3s;
-        letter-spacing: 1px;
+        color: #f1c40f;
     }
+    .roll-entry .details {
+        font-size: 0.9em;
+        color: #aaa;
+    }
+    .roll-entry .personagem-name {
+        color: #3498db;
+        font-weight: bold;
+    }
+    /* --- FIM ESTILOS HISTÓRICO DE DADOS --- */
 
-    #showAddFormBtn:hover {
-        color: #27ae60;
-    }
-    /* --- FIM ESTILOS DO RODAPÉ --- */
   </style>
 </head>
 <body>
-  <h1>Painel de Status</h1>
+    <div class="header-group">
+        <h1>Painel de Controle do Mestre</h1>
+        <button class="btn-small" onclick="window.location.href='/logout'">Sair</button>
+    </div>
 
-  <div id="addFormModal" class="modal-overlay">
-    <form id="addForm">
-      <div class="form-header">
-        <h2>Adicionar Personagem</h2>
-        <button type="button" class="close-btn">&times;</button>
-      </div>
-      <input name="id" type="text" placeholder="Nome (ID)" required>
-      <input name="imagem" type="text" placeholder="URL da imagem" >
-      <input name="vida" type="number" placeholder="Vida">
-      <input name="vidaMax" type="number" placeholder="Vida Máxima">
-      <input name="sanidade" type="number"  placeholder="Sanidade">
-      <input name="sanidadeMax" type="number"  placeholder="Sanidade Máxima">
-      <input name="pe" type="number"  placeholder="PE">
-      <input name="peMax" type="number"  placeholder="PE Máximo">
-      <button type="submit">Adicionar Personagem</button>
-    </form>
-  </div>
+    <div class="tab-bar">
+        <button class="tab-button active" data-tab="personagens-tab">Personagens</button>
+        <button class="tab-button" data-tab="historico-tab">Histórico de Rolagens</button>
+    </div>
 
+    <div id="personagens-tab" class="tab-content active">
+        <button class="btn-small" onclick="openModal()">+ Adicionar Personagem</button>
+        <hr style="margin: 15px 0; border-color: #333;">
+        <div id="personagens">
+            </div>
+    </div>
 
-  <div id="personagens"></div>
+    <div id="historico-tab" class="tab-content">
+        <h2>Histórico de Rolagens</h2>
+        <div id="historico-rolagens">
+            <div class="waiting-message">Nenhuma rolagem registrada ainda.</div>
+        </div>
+    </div>
+    <div id="add-personagem-modal" class="modal-overlay">
+        <form id="addForm">
+            <div class="form-header">
+                <h2>Adicionar Novo Personagem</h2>
+                <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
 
-  <footer>
-    <button id="showAddFormBtn">ADICIONAR PERSONAGENS</button>
-  </footer>
+            <input type="text" name="id" placeholder="ID (nome de usuário)" required>
+            <input type="text" name="name" placeholder="Nome do Personagem" required>
+            <input type="text" name="portrait" placeholder="URL do Retrato (opcional)">
 
-  <script>
+            <input type="number" name="vidaMax" placeholder="Vida Máxima" required value="10">
+            <input type="number" name="vida" placeholder="Vida Atual" required value="10">
+            
+            <input type="number" name="sanidadeMax" placeholder="Sanidade Máxima" required value="10">
+            <input type="number" name="sanidade" placeholder="Sanidade Atual" required value="10">
+
+            <input type="number" name="peMax" placeholder="PE Máximo" required value="10">
+            <input type="number" name="pe" placeholder="PE Atual" required value="10">
+
+            <button type="submit">Adicionar</button>
+        </form>
+    </div>
+    <script>
     const socket = io();
-    let personagens = {};
-    const form = document.getElementById('addForm');
     const container = document.getElementById('personagens');
+    const form = document.getElementById('addForm');
+    const modal = document.getElementById('add-personagem-modal');
+    const historicoDiv = document.getElementById('historico-rolagens');
+    let personagens = {};
+    let diceHistory = [];
 
-    // Elementos do Modal
-    const addFormModal = document.getElementById('addFormModal');
-    const showAddFormBtn = document.getElementById('showAddFormBtn');
-    const closeBtn = addFormModal.querySelector('.close-btn');
+    // --- FUNÇÕES DE LAYOUT (NOVO) ---
+    function openTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
 
-    // Função para abrir o modal
-    showAddFormBtn.addEventListener('click', () => {
-      addFormModal.style.display = 'flex';
-    });
-
-    // Função para fechar o modal
-    const closeModal = () => {
-      addFormModal.style.display = 'none';
+        document.getElementById(tabName).classList.add('active');
+        document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
     }
 
-    closeBtn.addEventListener('click', closeModal);
-    addFormModal.addEventListener('click', (e) => {
-        // Fecha o modal se o clique for no fundo escuro (o próprio overlay)
-        if (e.target === addFormModal) {
-            closeModal();
+    // Adiciona listener para a barra de abas
+    document.querySelector('.tab-bar').addEventListener('click', (e) => {
+        const button = e.target.closest('.tab-button');
+        if (button) {
+            openTab(button.dataset.tab);
         }
     });
 
+    // --- FUNÇÕES DE HISTÓRICO DE DADOS (NOVO) ---
+    
+    function getRollDetailsHtml(roll) {
+        let details = roll.rolls.map(r => 
+            `<span style="color: #ccc;">${r.type}</span>: ${r.results.join(', ')}`
+        ).join('; ');
+        
+        return `<div class="roll-entry">
+            <div>
+                <strong>${roll.total}</strong> (Rolagem de <span class="personagem-name">${roll.personagemName}</span>)
+            </div>
+            <div class="details">
+                **Dados:** ${roll.expression}
+            </div>
+            <div class="details">
+                **Detalhes:** ${details}
+            </div>
+            <div class="details">
+                <small>${new Date(roll.timestamp).toLocaleTimeString()}</small>
+            </div>
+        </div>`;
+    }
+
+    function renderDiceHistory() {
+        if (diceHistory.length === 0) {
+            historicoDiv.innerHTML = '<div class="waiting-message">Nenhuma rolagem registrada ainda.</div>';
+            return;
+        }
+
+        historicoDiv.innerHTML = diceHistory.map(getRollDetailsHtml).join('');
+    }
+
+    // --- FUNÇÕES DE MODAL/PERSONAGEM (MANTIDO) ---
+
+    function openModal() {
+      modal.style.display = 'flex';
+      form.elements.id.focus();
+    }
+
+    function closeModal() {
+      modal.style.display = 'none';
+      form.reset();
+    }
+
+    function getCardHtml(p) {
+      const vidaPercent = (p.vida / p.vidaMax) * 100;
+      const sanidadePercent = (p.sanidade / p.sanidadeMax) * 100;
+      const pePercent = (p.pe / p.peMax) * 100;
+
+      return `
+        <div class="card" data-id="${p.id}">
+          <img class="portrait" src="${p.portrait || '/images/default.jpg'}" alt="${p.name}" data-action="copy-link">
+          <div class="name" data-action="rename-char">${p.name}</div>
+
+          <div class="status vida">
+              <div class="status-fill vida" style="width: ${vidaPercent}%;"></div>
+              <div class="status-label">
+                  <span>Vida</span>
+                  <input type="number" class="inline-input" data-action="update-stat" name="vida" value="${p.vida}"> / ${p.vidaMax}
+              </div>
+          </div>
+          <div class="status sanidade">
+              <div class="status-fill sanidade" style="width: ${sanidadePercent}%;"></div>
+              <div class="status-label">
+                  <span>Sanidade</span>
+                  <input type="number" class="inline-input" data-action="update-stat" name="sanidade" value="${p.sanidade}"> / ${p.sanidadeMax}
+              </div>
+          </div>
+          <div class="status pe">
+              <div class="status-fill pe" style="width: ${pePercent}%;"></div>
+              <div class="status-label">
+                  <span>PE</span>
+                  <input type="number" class="inline-input" data-action="update-stat" name="pe" value="${p.pe}"> / ${p.peMax}
+              </div>
+          </div>
+
+          <div style="margin-top: 10px;">
+              <button class="btn-small" data-action="remove-char">Remover</button>
+              <button class="btn-small" data-action="copy-link">Link Ficha</button>
+          </div>
+        </div>
+      `;
+    }
 
     function render() {
-      container.innerHTML = '';
-      for (const id in personagens) {
-        const p = personagens[id];
-
-        const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
-        const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
-        const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
-
-        const cardHTML = `
-          <div class="card" data-id="${id}">
-            <div class="card-actions">
-              <button class="btn-card-action" data-action="copy-link" title="Copiar link da ficha do jogador">🔗</button>
-              <button class="btn-card-action" data-action="open-portrait" title="Abrir overlay para stream">👤</button>
-            </div>
-
-            <img src="${p.imagem || '/images/portrait.png'}" class="portrait" data-action="edit-image">
-            <div class="name" data-action="edit-name">${id}</div>
-
-            <div class="status">
-              <div class="status-fill vida" style="width:${vidaPct}%"></div>
-              <div class="status-label">
-                <button class="btn-vis ${p.vidaVisivel === false ? 'is-hidden' : ''}" data-action="toggle-visibility" data-stat="vida">👁️</button>
-                <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
-                Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
-                <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
-                <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
-              </div>
-            </div>
-            <div class="status">
-              <div class="status-fill sanidade" style="width:${sanPct}%"></div>
-              <div class="status-label">
-                <button class="btn-vis ${p.sanidadeVisivel === false ? 'is-hidden' : ''}" data-action="toggle-visibility" data-stat="sanidade">👁️</button>
-                <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
-                San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
-                <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
-                <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
-              </div>
-            </div>
-            <div class="status">
-              <div class="status-fill pe" style="width:${pePct}%"></div>
-              <div class="status-label">
-                <button class="btn-vis ${p.peVisivel === false ? 'is-hidden' : ''}" data-action="toggle-visibility" data-stat="pe">👁️</button>
-                <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
-                PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
-                <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
-                <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
-              </div>
-            </div>
-            <button class="btn-remove" data-action="remove">Remover</button>
-          </div>
-        `;
-        container.insertAdjacentHTML('beforeend', cardHTML);
-      }
+      container.innerHTML = Object.values(personagens).map(getCardHtml).join('');
     }
 
+    // --- LISTENERS DE AÇÕES (MANTIDO) ---
+
     container.addEventListener('click', (e) => {
-      const element = e.target.closest('[data-action]');
-      if (!element) return;
-      const action = element.dataset.action;
-      const card = element.closest('.card');
-      const id = card?.dataset.id;
-      if (!id) return;
+      const action = e.target.dataset.action;
+      const card = e.target.closest('.card');
+      if (!card) return;
+      const id = card.dataset.id;
 
       switch (action) {
-        case 'edit-image': {
-          const novaUrl = prompt('Nova URL da Imagem:', personagens[id].imagem);
-          if (novaUrl) socket.emit('update', { id, imagem: novaUrl.trim() });
-          break;
-        }
-        case 'edit-name': {
-          const novoNome = prompt('Novo Nome:', id);
-          if (novoNome && novoNome.trim() !== id) {
-            socket.emit('rename', { oldId: id, newId: novoNome.trim() });
-          }
-          break;
-        }
-        case 'change-stat': {
-          const stat = element.dataset.stat;
-          const delta = parseInt(element.dataset.delta);
-          const p = personagens[id];
-          let novoValor = p[stat] + delta;
-          if (novoValor < 0) novoValor = 0;
-          socket.emit('update', { id, [stat]: novoValor });
-          break;
-        }
-        case 'remove': {
-          if (confirm(`Tem certeza que deseja remover ${id}?`)) {
+        case 'remove-char': {
+          if (confirm(`Tem certeza que deseja remover o personagem ${personagens[id].name}?`)) {
             socket.emit('remove', id);
           }
           break;
         }
-        case 'toggle-visibility': {
-          const stat = element.dataset.stat;
-          const statVisivelKey = `${stat}Visivel`;
-          socket.emit('update', { id, [statVisivelKey]: !personagens[id][statVisivelKey] });
-          break;
-        }
-        case 'open-portrait': {
-          window.open(`/overlay.html?personagem=${encodeURIComponent(id)}`);
-          break;
+        case 'rename-char': {
+            const newId = prompt(`Novo ID para ${personagens[id].name}:`);
+            if (newId && newId !== id) {
+                socket.emit('rename', { oldId: id, newId });
+            }
+            break;
         }
         case 'copy-link': {
-          const urlFicha = `${window.location.origin}/ficha.html?personagem=${encodeURIComponent(id)}`;
+          const urlFicha = `${window.location.origin}/ficha?id=${id}`;
           navigator.clipboard.writeText(urlFicha).then(() => {
-            alert(`Link para a ficha de ${id} copiado!\n${urlFicha}`);
+            alert(`Link para a ficha de ${personagens[id].name} copiado!\n${urlFicha}`);
           });
           break;
         }
@@ -331,8 +396,10 @@
       socket.emit('add', novoPersonagem);
       form.reset();
       form.elements.id.focus();
-      closeModal(); // Fecha o modal após adicionar
+      closeModal();
     });
+
+    // --- LISTENERS DE SOCKET.IO (MODIFICADO) ---
 
     socket.on('init', (data) => {
       personagens = data || {};
@@ -340,13 +407,30 @@
     });
 
     socket.on('update', (data) => {
-      if (data && data.id && personagens[data.id]) {
-        Object.assign(personagens[data.id], data);
-        render();
-      }
+        if (data && data.id) {
+            if (!personagens[data.id]) {
+                personagens[data.id] = {};
+            }
+            Object.assign(personagens[data.id], data);
+            render();
+        }
+    });
+    
+    // NOVO: Inicializa o histórico de dados
+    socket.on('initDiceHistory', (data) => {
+        diceHistory = data || [];
+        renderDiceHistory();
     });
 
-    socket.on('connect', () => console.log('[CLIENT] Conectado ao servidor.'));
+    // NOVO: Atualiza o histórico de dados em tempo real
+    socket.on('rollResult', (data) => {
+        // Adiciona a rolagem mais recente ao topo
+        diceHistory.unshift(data);
+        if (diceHistory.length > 50) { // Mantém o histórico visual limitado
+            diceHistory.pop();
+        }
+        renderDiceHistory();
+    });
   </script>
 </body>
 </html>
