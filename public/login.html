@@ -2,36 +2,221 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <title>Login - Painel de Controle</title>
+  <title>Ficha de Personagem</title>
 
   <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
-  
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     @font-face { font-family:"Heroes Assemble 3D Italic"; src: url("/fonts/heroesassemble3dital.ttf") format("truetype"); }
-    body { font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; }
-    .login-container { background:#1f1f1f; padding: 25px 30px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.4); text-align:center; width: 300px; }
-    h1 { margin-top: 0; }
-    form { display:flex; flex-direction:column; gap:15px; }
-    input { padding:10px; border-radius:6px; border:0; background: #333; color: #fff; font-size: 1em; }
-    button { padding:12px; border-radius:6px; border:0; background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; font-size: 1.1em; }
-    .error-message { color: #e74c3c; margin-top: 15px; font-weight: bold; display: none; }
+    body{ font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 90vh; }
+    #personagem-container{ display:flex; justify-content:center; }
+    .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
+    .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; }
+    .name{ font-weight:700; margin-bottom:10px; font-size: 1.2em; }
+    .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
+    .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
+    .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
+    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
+    .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
+    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
+    .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
+    .waiting-message { color: #ccc; font-size: 24px; text-align: center; }
+
+    /* --- NOVOS ESTILOS PARA ROLAGEM DE DADOS --- */
+    #dice-roller { background: #1f1f1f; border-radius: 10px; padding: 15px; margin-bottom: 20px; width: 300px; box-shadow:0 6px 18px rgba(0,0,0,0.4); text-align: center;}
+    #dice-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+    #dice-buttons button, .dice-roller-btn { font-family: inherit; font-size: 1em; padding: 8px 12px; border-radius: 6px; border: 0; background: #333; color: #fff; cursor: pointer; }
+    #custom-dice-group { display: flex; gap: 5px; }
+    #custom-dice-group input { width: 50px; text-align: center; background: #444; }
+    #roll-display { margin-bottom: 10px; background: #121212; padding: 8px; border-radius: 5px; min-height: 20px; }
+    #roll-button { width: 100%; background: #27ae60; font-weight: bold; }
   </style>
 </head>
 <body>
-  <div class="login-container">
-    <h1>Acesso do Mestre</h1>
-    <form id="loginForm" method="POST" action="/login">
-      <input name="password" type="password" placeholder="Senha" required>
-      <button type="submit">Entrar</button>
-    </form>
-    <div id="errorMessage" class="error-message">Senha incorreta.</div>
+  
+  <div id="dice-roller">
+    <div id="dice-buttons">
+      <button data-die="4">d4</button>
+      <button data-die="6">d6</button>
+      <button data-die="8">d8</button>
+      <button data-die="10">d10</button>
+      <button data-die="12">d12</button>
+      <button data-die="20">d20</button>
+      <div id="custom-dice-group">
+        <input type="number" id="custom-die-input" placeholder="?" min="1">
+        <button id="custom-die-btn">d</button>
+      </div>
+    </div>
+    <div id="roll-display"><span>Aguardando seleção...</span></div>
+    <button id="roll-button" class="dice-roller-btn">Rolar Dados</button>
   </div>
 
+  <div id="personagem-container"></div>
+
   <script>
+    const socket = io();
+    let personagem = null;
+    const container = document.getElementById('personagem-container');
     const params = new URLSearchParams(window.location.search);
-    if (params.get('error') === '1') {
-      document.getElementById('errorMessage').style.display = 'block';
+    const personagemId = params.get('personagem');
+
+    // --- NOVA LÓGICA DE DADOS ---
+    const diceRoller = document.getElementById('dice-roller');
+    const diceButtons = document.getElementById('dice-buttons');
+    const rollDisplay = document.querySelector('#roll-display span');
+    const rollButton = document.getElementById('roll-button');
+    const customDieInput = document.getElementById('custom-die-input');
+    const customDieBtn = document.getElementById('custom-die-btn');
+    
+    let rollSelection = {};
+
+    function updateRollDisplay() {
+      const parts = Object.entries(rollSelection)
+        .filter(([, count]) => count > 0)
+        .map(([die, count]) => `${count}d${die}`);
+
+      if (parts.length === 0) {
+        rollDisplay.textContent = 'Aguardando seleção...';
+      } else {
+        rollDisplay.textContent = parts.join(' + ');
+      }
     }
+
+    diceButtons.addEventListener('click', (e) => {
+      const dieSize = e.target.dataset.die;
+      if (dieSize) {
+        rollSelection[dieSize] = (rollSelection[dieSize] || 0) + 1;
+        updateRollDisplay();
+      }
+    });
+
+    customDieBtn.addEventListener('click', () => {
+      const dieSize = customDieInput.value;
+      if (dieSize && parseInt(dieSize) > 0) {
+        rollSelection[dieSize] = (rollSelection[dieSize] || 0) + 1;
+        updateRollDisplay();
+        customDieInput.value = '';
+      }
+    });
+
+    rollButton.addEventListener('click', () => {
+      if (Object.keys(rollSelection).length > 0 && personagemId) {
+        socket.emit('rollDice', { characterId: personagemId, dice: rollSelection });
+        rollSelection = {};
+        updateRollDisplay();
+      }
+    });
+    // --- FIM DA LÓGICA DE DADOS ---
+
+    function render() {
+      if (!personagemId) {
+        diceRoller.style.display = 'none';
+        container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
+        return;
+      }
+      
+      if (!personagem) {
+        diceRoller.style.display = 'none';
+        container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
+        return;
+      }
+      
+      diceRoller.style.display = 'block';
+      const p = personagem;
+      const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
+      const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
+      const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
+
+      const cardHTML = `
+        <div class="card" data-id="${personagemId}">
+          <img src="${p.imagem || '/images/portrait.png'}" class="portrait">
+          <div class="name">${personagemId}</div>
+
+          <div class="status ${p.vidaVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill vida" style="width:${vidaPct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
+              Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="status ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill sanidade" style="width:${sanPct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
+              San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="status ${p.peVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill pe" style="width:${pePct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
+              PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+      `;
+      container.innerHTML = cardHTML;
+    }
+    
+    container.addEventListener('click', (e) => {
+      const element = e.target.closest('[data-action="change-stat"]');
+      if (!element || !personagem) return;
+      
+      const stat = element.dataset.stat;
+      const delta = parseInt(element.dataset.delta);
+      let novoValor = personagem[stat] + delta;
+
+      if (novoValor < 0) novoValor = 0;
+      
+      socket.emit('update', { id: personagemId, [stat]: novoValor });
+    });
+
+    container.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-action="update-stat"]');
+      if (!input || !personagem) return;
+      
+      const stat = input.name;
+      let valor = parseInt(input.value);
+
+      if (!isNaN(valor)) {
+        if (valor < 0) {
+          valor = 0;
+          input.value = valor;
+        }
+        socket.emit('update', { id: personagemId, [stat]: valor });
+      }
+    });
+
+    socket.on('init', (data) => {
+      if (data && data[personagemId]) {
+        personagem = data[personagemId];
+        render();
+      }
+    });
+
+    socket.on('update', (data) => {
+      if (data && data.id === personagemId) {
+        if (!personagem) personagem = {};
+        Object.assign(personagem, data);
+        render();
+      }
+    });
+
+    socket.on('connect', () => {
+        console.log('[FICHA] Conectado ao servidor.');
+        if (personagemId) {
+            document.title = `Ficha - ${personagemId}`;
+        }
+    });
   </script>
 </body>
 </html>
