@@ -5,7 +5,7 @@
   <title>Overlay</title>
 
   <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
-  
+
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     @font-face {
@@ -14,59 +14,73 @@
     }
     body { margin:0; background:transparent; font-family:"Heroes Assemble", Arial, sans-serif; }
     #overlays { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; padding:10px; }
-    
+
     .card { position:relative; width:720px; height:480px; }
-    
-    .portrait { 
-        position:absolute; 
-        left:40px; 
-        top:60px; 
-        width:320px; 
-        height:320px; 
-        border-radius:50%; 
+
+    .portrait-border {
+        position:absolute;
+        left:40px;
+        top:60px;
+        width:320px;
+        height:320px;
+        border-radius:50%;
         border:12px solid rgba(10,10,10,0.95);
-        /* O fundo preto que será revelado quando a imagem sumir */
-        background-color: rgba(0, 0, 0, 0);
+        background-color: transparent;
+        /* Garante que a borda fique acima da imagem */
+        z-index: 2;
     }
 
-    /* Pseudo-elemento para conter a imagem do personagem */
-    .portrait::before {
+    .portrait-image {
+        position: absolute;
+        left: 40px;
+        top: 60px;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background-size: cover;
+        background-position: center;
+        /* Camada da imagem fica atrás da borda */
+        z-index: 1;
+    }
+
+    /* Pseudo-elemento para o efeito de "morte" (fade to black) */
+    .portrait-image::after {
         content: '';
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-image: inherit; /* Pega a imagem definida no elemento pai */
-        background-size: cover;
-        background-position: center;
+        background-color: black;
         border-radius: 50%;
-        opacity: 1;
-        /* A transição suave de 1 segundo para o fade-out */
+        opacity: 0;
+        /* Transição suave de 1 segundo para o fade-in/out */
         transition: opacity 1s ease-in-out;
+        /* Garante que o overlay preto fique sobre a imagem */
+        z-index: 3;
     }
 
-    /* Quando o personagem morre, o pseudo-elemento com a imagem fica transparente */
-    .portrait.dead::before {
-        opacity: 0;
+    /* Quando o personagem morre, o overlay preto fica visível */
+    .portrait-image.dead::after {
+        opacity: 1;
     }
-    
-    .name { 
-        position:absolute; 
-        left:370px; 
-        top:36px; 
-        font-size:100px; 
-        color:#fff; 
-        transform:rotate(-8deg); 
-        text-shadow:3px 4px 6px rgba(0,0,0,0.85); 
+
+    .name {
+        position:absolute;
+        left:370px;
+        top:36px;
+        font-size:100px;
+        color:#fff;
+        transform:rotate(-8deg);
+        text-shadow:3px 4px 6px rgba(0,0,0,0.85);
     }
-    
+
     .vida-large { position:absolute; left:370px; top:110px; font-size:128px; color:#b44245; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
     .san-large { position:absolute; left:370px; top:225px; font-size:128px; color:#2477b8; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
     .pe-badge { position:absolute; left:72px; bottom:84px; font-size:44px; color:#f1c40f; text-shadow:2px 2px 6px rgba(0,0,0,0.8); }
-    
+
     .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
-    
+
     .waiting-message {
         color: #ccc;
         font-size: 24px;
@@ -74,19 +88,19 @@
         margin-top: 50px;
     }
 
-    /* ANIMAÇÃO DE RESPIRAR PARA O PORTRAIT */
+    /* ANIMAÇÃO DE RESPIRAR PARA A IMAGEM */
     @keyframes breath-portrait {
         0% { transform: scale(1.0); }
         50% { transform: scale(1.02); }
         100% { transform: scale(1.0); }
     }
 
-    .portrait.breath {
+    .portrait-image.breath {
         animation: breath-portrait 4s ease-in-out infinite;
     }
 
     /* PAUSA A ANIMAÇÃO QUANDO O CARD ESTIVER COM A CLASSE 'morto' */
-    .card.morto .portrait.breath {
+    .card.morto .portrait-image.breath {
         animation-play-state: paused;
     }
 
@@ -104,24 +118,24 @@
     const personagemId = params.get('personagem');
 
     function render() {
-      container.innerHTML = ''; 
+      container.innerHTML = '';
 
       if (!personagemId) {
         container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
         return;
       }
-      
+
       const p = personagens[personagemId];
 
       if (p) {
         const isDead = p.vida <= 0;
-        // Adiciona a classe 'breath' se o personagem estiver vivo
-        const portraitClass = isDead ? 'portrait dead' : 'portrait breath';
+        const portraitImageClass = isDead ? 'portrait-image dead' : 'portrait-image breath';
         const cardClass = isDead ? 'card morto' : 'card';
 
         const cardHTML = `
           <div class="${cardClass}" data-personagem-id="${personagemId}">
-            <div class="${portraitClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
+            <div class="portrait-border"></div>
+            <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
             <div class="name">${personagemId}</div>
             <div class="vida-large ${p.vidaVisivel === false ? 'status-hidden' : ''}">${p.vida}/${p.vidaMax}</div>
             <div class="san-large ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">${p.sanidade}/${p.sanidadeMax}</div>
@@ -133,21 +147,25 @@
         container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
       }
     }
-    
+
     socket.on('init', (data) => {
       personagens = data || {};
       render();
     });
 
     socket.on('update', (data) => {
-        if (data && data.id === personagemId && personagens[data.id]) {
-            const wasAlive = personagens[data.id].vida > 0;
-            const isNowDead = data.vida !== undefined && data.vida <= 0;
+        if (data && data.id === personagemId) {
+            // Se o personagem ainda não existe localmente, inicializa.
+            if (!personagens[data.id]) {
+                personagens[data.id] = {};
+            }
 
+            const wasAlive = personagens[data.id].vida > 0;
             Object.assign(personagens[data.id], data);
+            const isNowDead = personagens[data.id].vida <= 0;
 
             // Se o estado de "morto" mudou, renderiza tudo para aplicar/remover classes de animação
-            if (wasAlive && isNowDead) {
+            if ((wasAlive && isNowDead) || (!wasAlive && !isNowDead)) {
                 render();
             } else {
                 // Para outras atualizações, apenas atualiza os textos para ser mais eficiente
