@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-t" />
   <title>Overlay</title>
 
   <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
@@ -17,6 +17,35 @@
 
     .card { position:relative; width:720px; height:480px; }
 
+    /*
+      NOVO: Este é o container que vai segurar a imagem.
+      Ele é o círculo que vemos na tela e vai esconder o que "vazar" da imagem.
+    */
+    .portrait-container {
+        position: absolute;
+        left: 40px;
+        top: 60px;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        overflow: hidden; /* A mágica acontece aqui: esconde tudo que sair dos limites */
+        z-index: 1;
+    }
+
+    /*
+      ALTERADO: A imagem agora ocupa 100% do container e não precisa mais ser um círculo,
+      pois o container já faz esse papel.
+    */
+    .portrait-image {
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        /* O ::after (efeito de morte) precisa de um posicionamento de referência */
+        position: relative;
+    }
+
+    /* A borda fica por cima de tudo */
     .portrait-border {
         position:absolute;
         left:40px;
@@ -26,24 +55,14 @@
         border-radius:50%;
         border:12px solid rgba(10,10,10,0.95);
         background-color: transparent;
-        /* Garante que a borda fique acima da imagem */
-        z-index: 2;
+        z-index: 2; /* Garante que a borda fique acima da imagem */
+        pointer-events: none; /* Impede que a borda bloqueie cliques, se houver */
     }
 
-    .portrait-image {
-        position: absolute;
-        left: 40px;
-        top: 60px;
-        width: 320px;
-        height: 320px;
-        border-radius: 50%;
-        background-size: cover;
-        background-position: center;
-        /* Camada da imagem fica atrás da borda */
-        z-index: 1;
-    }
-
-    /* Pseudo-elemento para o efeito de "morte" (fade to black) */
+    /*
+      ALTERADO: O pseudo-elemento agora cria a silhueta preta.
+      Ele cobre a imagem dentro do container.
+    */
     .portrait-image::after {
         content: '';
         position: absolute;
@@ -52,15 +71,12 @@
         width: 100%;
         height: 100%;
         background-color: black;
-        border-radius: 50%;
         opacity: 0;
-        /* Transição suave de 1 segundo para o fade-in/out */
         transition: opacity 1s ease-in-out;
-        /* Garante que o overlay preto fique sobre a imagem */
-        z-index: 3;
+        z-index: 3; /* Garante que a silhueta fique sobre a imagem */
     }
 
-    /* Quando o personagem morre, o overlay preto fica visível */
+    /* Quando o personagem morre, a silhueta preta fica visível */
     .portrait-image.dead::after {
         opacity: 1;
     }
@@ -91,7 +107,7 @@
     /* ANIMAÇÃO DE RESPIRAR PARA A IMAGEM */
     @keyframes breath-portrait {
         0% { transform: scale(1.0); }
-        50% { transform: scale(1.02); }
+        50% { transform: scale(1.05); } /* Aumentei um pouco para o efeito ficar mais visível */
         100% { transform: scale(1.0); }
     }
 
@@ -129,13 +145,18 @@
 
       if (p) {
         const isDead = p.vida <= 0;
+        // A classe 'dead' vai para a imagem, e a 'breath' também, para controlar a animação e o overlay.
         const portraitImageClass = isDead ? 'portrait-image dead' : 'portrait-image breath';
+        // A classe 'morto' vai para o card para pausar a animação.
         const cardClass = isDead ? 'card morto' : 'card';
 
+        // ALTERADO: A estrutura do HTML para o retrato foi atualizada
         const cardHTML = `
           <div class="${cardClass}" data-personagem-id="${personagemId}">
+            <div class="portrait-container">
+                <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
+            </div>
             <div class="portrait-border"></div>
-            <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
             <div class="name">${personagemId}</div>
             <div class="vida-large ${p.vidaVisivel === false ? 'status-hidden' : ''}">${p.vida}/${p.vidaMax}</div>
             <div class="san-large ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">${p.sanidade}/${p.sanidadeMax}</div>
@@ -155,7 +176,6 @@
 
     socket.on('update', (data) => {
         if (data && data.id === personagemId) {
-            // Se o personagem ainda não existe localmente, inicializa.
             if (!personagens[data.id]) {
                 personagens[data.id] = {};
             }
@@ -164,11 +184,9 @@
             Object.assign(personagens[data.id], data);
             const isNowDead = personagens[data.id].vida <= 0;
 
-            // Se o estado de "morto" mudou, renderiza tudo para aplicar/remover classes de animação
             if ((wasAlive && isNowDead) || (!wasAlive && !isNowDead)) {
                 render();
             } else {
-                // Para outras atualizações, apenas atualiza os textos para ser mais eficiente
                 const card = document.querySelector(`.card[data-personagem-id="${personagemId}"]`);
                 if (card) {
                     const p = personagens[personagemId];
@@ -176,7 +194,7 @@
                     card.querySelector('.san-large').innerText = `${p.sanidade}/${p.sanidadeMax}`;
                     card.querySelector('.pe-badge').innerText = `${p.pe}/${p.peMax}`;
                 } else {
-                    render(); // Se o card não existir, renderiza do zero
+                    render();
                 }
             }
         }
