@@ -13,7 +13,7 @@
     #personagem-container{ display:flex; justify-content:center; }
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; }
-    .name{ font-weight:700; margin-bottom:10px; font-size: 1.2em; }
+    .name{ font-weight:700; margin-bottom:10px; }
     .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
     .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
     .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
@@ -24,7 +24,7 @@
     .btn-action:hover{ background:rgba(255,255,255,0.15); }
     .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
 
-    /* --- ESTILOS ROLAGEM DE DADOS (NOVO) --- */
+    /* --- NOVO CSS PARA ROLAGEM DE DADOS --- */
     .dice-roller-container {
         margin-top: 20px;
         padding: 15px;
@@ -34,12 +34,13 @@
     }
     .dice-buttons {
         display: flex;
+        flex-wrap: wrap; /* Permite quebrar linha para botões menores */
         justify-content: space-around;
         gap: 5px;
         margin-bottom: 15px;
     }
     .dice-button {
-        flex: 1;
+        flex: 1 1 30%; /* Para melhor layout em telas pequenas */
         background: #444;
         color: #fff;
         border: 2px solid #555;
@@ -49,9 +50,10 @@
         font-weight: bold;
         transition: background 0.2s, transform 0.1s;
         font-size: 0.9em;
+        min-width: 40px;
     }
     .dice-button.active {
-        background: #e74c3c; /* Cor de destaque para dados selecionados */
+        background: #e74c3c; 
         border-color: #c0392b;
     }
     .dice-button:hover:not(.active) {
@@ -65,17 +67,13 @@
         font-size: 1.2em;
         text-align: center;
         min-height: 20px;
-    }
-    .roll-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
+        word-break: break-all;
     }
     .custom-dice-group {
         display: flex;
         gap: 5px;
         align-items: center;
+        margin-bottom: 10px;
     }
     #custom-dice-input {
         flex-grow: 1;
@@ -84,6 +82,7 @@
         color: #fff;
         border: none;
         border-radius: 4px;
+        text-align: center;
     }
     #confirm-roll-btn {
         width: 100%;
@@ -97,7 +96,11 @@
         font-size: 1.1em;
         transition: background 0.2s;
     }
-    #confirm-roll-btn:hover {
+    #confirm-roll-btn:disabled {
+        background: #4a4a4a;
+        cursor: not-allowed;
+    }
+    #confirm-roll-btn:hover:not(:disabled) {
         background: #2ecc71;
     }
     #last-roll-result {
@@ -106,6 +109,7 @@
         padding: 5px;
         background: #1f1f1f;
         border-radius: 4px;
+        min-height: 20px;
     }
   </style>
 </head>
@@ -124,10 +128,10 @@
     if (!personagemId) {
       container.innerHTML = '<h1>Erro: ID do personagem não fornecido.</h1>';
     } else {
-      socket.emit('getId', personagemId);
+      // Nota: o servidor já emite 'init' ao conectar, não precisamos de 'getId'
     }
 
-    // --- FUNÇÕES DE ROLAGEM DE DADOS (NOVO) ---
+    // --- FUNÇÕES DE ROLAGEM DE DADOS (NOVAS) ---
 
     function updateDiceDisplay() {
         let expression = '';
@@ -142,7 +146,8 @@
         }
 
         const customExpression = document.getElementById('custom-dice-input').value.trim();
-        if (customExpression) {
+        // Validação simples para a expressão personalizada
+        if (customExpression && /^\d+d\d+([+\s]*\d+d\d+)*$/.test(customExpression)) {
              if (expression !== '') expression += ' + ';
              expression += customExpression;
         }
@@ -182,12 +187,12 @@
         const diceExpression = document.getElementById('current-roll-expression').innerText;
         if (personagem && diceExpression && diceExpression !== 'Nenhum dado selecionado') {
             socket.emit('rollDice', { personagemId, diceExpression });
-            document.getElementById('last-roll-result').innerText = `Rolando ${diceExpression}...`;
-            resetDiceSelection(); // Limpa a seleção após rolar
+            document.getElementById('last-roll-result').innerHTML = `Rolando **${diceExpression}**...`;
+            resetDiceSelection(); 
         }
     }
 
-    // --- TEMPLATE E RENDERIZAÇÃO (MODIFICADO) ---
+    // --- TEMPLATE E RENDERIZAÇÃO (AJUSTADO) ---
 
     function getRollDisplayHTML() {
         return `
@@ -201,11 +206,9 @@
                     <button class="dice-button" data-sides="20">1d20</button>
                 </div>
 
-                <div class="roll-info">
-                    <div class="custom-dice-group">
-                        <label for="custom-dice-input">Dados Extras:</label>
-                        <input type="text" id="custom-dice-input" placeholder="ex: 1d10+1d6">
-                    </div>
+                <div class="custom-dice-group">
+                    <label for="custom-dice-input">Customizar:</label>
+                    <input type="text" id="custom-dice-input" placeholder="ex: 1d10+1d6">
                 </div>
 
                 <div class="roll-display">
@@ -220,21 +223,22 @@
     }
 
     function getCardHtml(p) {
-      const vidaPercent = (p.vida / p.vidaMax) * 100;
-      const sanidadePercent = (p.sanidade / p.sanidadeMax) * 100;
-      const pePercent = (p.pe / p.peMax) * 100;
+      // Garantindo que valores nulos/undefined não quebrem o cálculo
+      const vidaPercent = (p.vida || 0) / (p.vidaMax || 1) * 100;
+      const sanidadePercent = (p.sanidade || 0) / (p.sanidadeMax || 1) * 100;
+      const pePercent = (p.pe || 0) / (p.peMax || 1) * 100;
 
       return `
         <div class="card" data-id="${p.id}">
           <img class="portrait" src="${p.portrait || '/images/default.jpg'}" alt="${p.name}">
-          <div class="name">${p.name}</div>
+          <div class="name">${p.name || p.id}</div>
 
           <div class="status vida">
               <div class="status-fill vida" style="width: ${vidaPercent}%;"></div>
               <div class="status-label">
                   <span>Vida</span>
                   <button class="btn-action" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
-                  ${p.vida}/${p.vidaMax}
+                  ${p.vida || 0}/${p.vidaMax || 0}
                   <button class="btn-action" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
               </div>
           </div>
@@ -243,7 +247,7 @@
               <div class="status-label">
                   <span>Sanidade</span>
                   <button class="btn-action" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
-                  ${p.sanidade}/${p.sanidadeMax}
+                  ${p.sanidade || 0}/${p.sanidadeMax || 0}
                   <button class="btn-action" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
               </div>
           </div>
@@ -252,7 +256,7 @@
               <div class="status-label">
                   <span>PE</span>
                   <button class="btn-action" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
-                  ${p.pe}/${p.peMax}
+                  ${p.pe || 0}/${p.peMax || 0}
                   <button class="btn-action" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
               </div>
           </div>
@@ -265,11 +269,13 @@
     function render() {
       if (personagem) {
         container.innerHTML = getCardHtml(personagem);
-
-        // Adiciona listeners para os novos botões de dados
+        
+        // --- INICIALIZAÇÃO DOS LISTENERS DE DADOS ---
         document.querySelectorAll('.dice-button').forEach(button => {
+            // Click normal: Aumenta a contagem de dados
             button.addEventListener('click', () => handleDiceButtonClick(button.dataset.sides));
-            button.addEventListener('contextmenu', (e) => { // Botão direito para diminuir
+            // Botão direito: Diminui a contagem de dados (tipo um reset por tipo de dado)
+            button.addEventListener('contextmenu', (e) => { 
                 e.preventDefault();
                 const key = `d${button.dataset.sides}`;
                 selectedDice[key] = Math.max(0, (selectedDice[key] || 0) - 1);
@@ -279,7 +285,6 @@
         });
 
         document.getElementById('confirm-roll-btn').addEventListener('click', confirmRoll);
-
         document.getElementById('custom-dice-input').addEventListener('input', updateDiceDisplay);
 
       } else {
@@ -287,7 +292,7 @@
       }
     }
 
-    // --- LISTENERS DE SOCKET.IO (MODIFICADO) ---
+    // --- LISTENERS DE SOCKET.IO (AJUSTADO) ---
 
     // Listener para as ações de status (MANTIDO)
     container.addEventListener('click', (e) => {
@@ -296,7 +301,7 @@
       
       const stat = element.dataset.stat;
       const delta = parseInt(element.dataset.delta);
-      let novoValor = personagem[stat] + delta;
+      let novoValor = (personagem[stat] || 0) + delta;
 
       if (novoValor < 0) novoValor = 0;
       

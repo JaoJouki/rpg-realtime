@@ -15,7 +15,7 @@
     body { margin:0; background:transparent; font-family:"Heroes Assemble", Arial, sans-serif; }
     #overlays { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; padding:10px; }
 
-    /* --- Conteúdo de Cartão de Personagem (MANTIDO) --- */
+    /* --- Seus Estilos de Card de Personagem (MANTIDOS) --- */
     .card { position:relative; width:720px; height:480px; }
     .portrait-container {
         position: absolute;
@@ -57,18 +57,23 @@
         transform:rotate(-8deg); 
         text-shadow:3px 4px 6px rgba(0,0,0,0.85);
     }
-    /* --- FIM Conteúdo de Cartão de Personagem --- */
+    /* Estilos para os stats (apenas para evitar quebra no JS) */
+    .stats, .stat-group, .pe-group, .vida-large, .san-large, .pe-badge {
+        /* Estilos placeholder, ajuste se necessário */
+        display: none; 
+    }
+    /* --- FIM Seus Estilos de Card de Personagem --- */
 
 
     /* --- ESTILOS VISUALIZAÇÃO DE DADOS (NOVO) --- */
     #dice-animation-container {
-        display: none; /* Começa escondido */
+        display: none; 
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.8); /* Fundo semi-transparente */
+        background: rgba(0, 0, 0, 0.8); 
         z-index: 9999; 
         justify-content: center;
         align-items: center;
@@ -98,9 +103,10 @@
         transform: translate(-50%, -50%);
         font-size: 8em;
         font-weight: bold;
+        color: #f1c40f;
         text-shadow: 4px 4px 8px rgba(0,0,0,0.9);
         z-index: 10;
-        display: none; /* Escondido até o resultado */
+        display: none; 
     }
 
     #dice-info {
@@ -109,6 +115,7 @@
         text-align: center;
         opacity: 0;
         transition: opacity 0.5s;
+        padding: 0 20px;
     }
     #dice-info.visible {
         opacity: 1;
@@ -121,8 +128,7 @@
 
   <div id="dice-animation-container">
     <div id="dice-animation">
-        <video id="dice-video" src="/dice.webm" preload="auto"></video>
-        <div id="dice-result-display"></div>
+        <video id="dice-video" src="/dice.webm" preload="auto" muted></video> <div id="dice-result-display"></div>
     </div>
     <div id="dice-info"></div>
   </div>
@@ -146,12 +152,16 @@
         diceVideo.currentTime = 0;
         diceVideo.loop = true;
         
-        diceVideo.play().catch(e => console.log('Erro ao iniciar vídeo:', e));
+        // Tenta tocar o vídeo (pode falhar se o navegador bloquear)
+        diceVideo.play().catch(e => console.log('Erro ao iniciar vídeo (pode ser bloqueio do navegador):', e));
 
         // Para a animação e mostra o resultado após 3 segundos
+        const animationDuration = 3000;
+        const resultDisplayDuration = 5000;
+        
         setTimeout(() => {
             diceVideo.pause();
-            diceVideo.currentTime = 0; // Volta ao início (o dado no webm parece um d20 parado no início)
+            diceVideo.currentTime = 0; // Volta ao início para uma imagem estática (dado)
 
             diceResultDisplay.innerText = total;
             diceResultDisplay.style.display = 'block';
@@ -160,48 +170,51 @@
             // Esconde tudo após mais 5 segundos
             setTimeout(() => {
                 diceContainer.style.display = 'none';
-            }, 5000);
+                diceResultDisplay.style.display = 'none';
+                diceInfo.classList.remove('visible');
+            }, resultDisplayDuration);
 
-        }, 3000); // Rola por 3 segundos
+        }, animationDuration);
     }
 
     // --- TEMPLATE E RENDERIZAÇÃO (MANTIDO) ---
 
     function getCardHtml(p) {
-      // Verifica se o personagem está morto (vida <= 0)
+      // Garante valores default para evitar "undefined"
+      p.name = p.name || p.id;
+      p.portrait = p.portrait || '/images/default.jpg';
+      p.vida = p.vida || 0;
+      p.vidaMax = p.vidaMax || 1;
+      p.sanidade = p.sanidade || 0;
+      p.sanidadeMax = p.sanidadeMax || 1;
+      p.pe = p.pe || 0;
+      p.peMax = p.peMax || 1;
+      
       const isDead = p.vida <= 0;
       const portraitClass = isDead ? 'portrait-image dead' : 'portrait-image';
-      
-      const vida = p.vida !== undefined ? p.vida : 0;
-      const vidaMax = p.vidaMax !== undefined ? p.vidaMax : 1;
-      const sanidade = p.sanidade !== undefined ? p.sanidade : 0;
-      const sanidadeMax = p.sanidadeMax !== undefined ? p.sanidadeMax : 1;
-      const pe = p.pe !== undefined ? p.pe : 0;
-      const peMax = p.peMax !== undefined ? p.peMax : 1;
-
 
       return `
         <div class="card" data-personagem-id="${p.id}">
           <div class="portrait-border"></div>
           <div class="portrait-container">
-            <div class="${portraitClass}" style="background-image: url('${p.portrait || '/images/default.jpg'}');"></div>
+            <div class="${portraitClass}" style="background-image: url('${p.portrait}');"></div>
           </div>
-          <div class="name">${p.name || p.id}</div>
+          <div class="name">${p.name}</div>
           
           <div class="stats">
-            <div class="stat-group">
-                <span class="stat-label">Vida:</span>
-                <span class="vida-large">${vida}/${vidaMax}</span>
+                <div class="stat-group">
+                    <span class="stat-label">Vida:</span>
+                    <span class="vida-large">${p.vida}/${p.vidaMax}</span>
+                </div>
+                <div class="stat-group">
+                    <span class="stat-label">Sanidade:</span>
+                    <span class="san-large">${p.sanidade}/${p.sanidadeMax}</span>
+                </div>
+                <div class="pe-group">
+                    <span class="pe-label">PE:</span>
+                    <span class="pe-badge">${p.pe}/${p.peMax}</span>
+                </div>
             </div>
-            <div class="stat-group">
-                <span class="stat-label">Sanidade:</span>
-                <span class="san-large">${sanidade}/${sanidadeMax}</span>
-            </div>
-            <div class="pe-group">
-                <span class="pe-label">PE:</span>
-                <span class="pe-badge">${pe}/${peMax}</span>
-            </div>
-          </div>
         </div>
       `;
     }
@@ -210,14 +223,13 @@
       overlaysContainer.innerHTML = Object.values(personagens).map(getCardHtml).join('');
     }
 
-    // --- LISTENERS DE SOCKET.IO (MODIFICADO) ---
+    // --- LISTENERS DE SOCKET.IO (AJUSTADO) ---
 
     // NOVO: Listener para resultado da rolagem
     socket.on('rollResult', (data) => {
         const personagemName = data.personagemName || data.personagemId;
         showRollAnimation(personagemName, data.expression, data.total);
     });
-
 
     socket.on('init', (data) => {
       personagens = data || {};
@@ -230,20 +242,21 @@
                 personagens[data.id] = {};
             }
             
-            // Verifica se o status de 'morto' mudou (para forçar o re-render)
+            // Lógica de atualização de status (mantida)
             const wasAlive = personagens[data.id].vida > 0;
             Object.assign(personagens[data.id], data);
             const isNowDead = personagens[data.id].vida <= 0;
 
-            if ((wasAlive !== isNowDead)) { // Se o status de vivo/morto mudou, renderiza tudo
+            if ((wasAlive !== isNowDead)) { 
                 render();
-            } else { // Caso contrário, apenas atualiza os números rapidamente
+            } else { 
                 const card = document.querySelector(`.card[data-personagem-id=\"${data.id}\"]`);
                 if (card) {
                     const p = personagens[data.id];
-                    card.querySelector('.vida-large').innerText = `${p.vida}/${p.vidaMax}`;
-                    card.querySelector('.san-large').innerText = `${p.sanidade}/${p.sanidadeMax}`;
-                    card.querySelector('.pe-badge').innerText = `${p.pe}/${p.peMax}`;
+                    // Atualiza apenas os números, se houver
+                    if(card.querySelector('.vida-large')) card.querySelector('.vida-large').innerText = `${p.vida}/${p.vidaMax}`;
+                    if(card.querySelector('.san-large')) card.querySelector('.san-large').innerText = `${p.sanidade}/${p.sanidadeMax}`;
+                    if(card.querySelector('.pe-badge')) card.querySelector('.pe-badge').innerText = `${p.pe}/${p.peMax}`;
                 } else {
                     render();
                 }
@@ -253,8 +266,6 @@
 
     socket.on('connect', () => {
         console.log('[OVERLAY] Conectado ao servidor');
-        // Solicitar dados iniciais caso a conexão seja restaurada e 'init' tenha sido perdido
-        socket.emit('getId', 'all'); 
     });
   </script>
 </body>

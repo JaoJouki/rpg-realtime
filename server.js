@@ -11,7 +11,7 @@ const MASTER_PASSWORD = 'RPGSEGURO';
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "RPGSEGURO-Potraits";
-const PERSONAGENS_COLLECTION = "personagens";
+const PERSONAGENS_COLLECTION = "personagens"; 
 const DICE_HISTORY_COLLECTION = "historico_dados"; // Nova coleção para persistência do histórico
 // --------------------
 
@@ -22,9 +22,10 @@ const io = new Server(server);
 let db;
 let personagensCollection;
 let diceHistoryCollection;
+let personagens = {}; // Objeto global para armazenar os personagens em memória
 let diceHistory = []; // Histórico de dados em memória, será sincronizado com o DB
 
-// --- FUNÇÕES DE LÓGICA DE DADOS ---
+// --- FUNÇÕES DE LÓGICA DE DADOS (NOVAS) ---
 
 // Função para rolar um dado individual (ex: 'd20')
 function rollDie(sides) {
@@ -57,6 +58,36 @@ function handleDiceRoll(expression) {
 
     return { total, rolls, expression };
 }
+
+
+// --- FUNÇÕES DE CARREGAMENTO (AJUSTADAS) ---
+
+async function carregarPersonagens() {
+    try {
+        const docs = await personagensCollection.find({}).toArray();
+        const data = {};
+        docs.forEach(doc => {
+            data[doc.id] = doc;
+        });
+        personagens = data; // Atualiza o objeto em memória
+        return personagens;
+    } catch (e) {
+        console.error("[SERVER] Erro ao carregar personagens:", e);
+        return {};
+    }
+}
+
+async function carregarHistorico() {
+    try {
+        // Carrega os 50 mais recentes
+        const docs = await diceHistoryCollection.find({}).sort({ timestamp: -1 }).limit(50).toArray();
+        return docs;
+    } catch (e) {
+        console.error("[SERVER] Erro ao carregar histórico de dados:", e);
+        return [];
+    }
+}
+
 
 // --- CONFIGURAÇÃO DO SERVIDOR/SESSION/AUTENTICAÇÃO (MANTIDA) ---
 
@@ -110,7 +141,7 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// --- LÓGICA DO SOCKET.IO (MODIFICADA) ---
+// --- LÓGICA DO SOCKET.IO (AJUSTADA) ---
 
 // Conecta o middleware de sessão ao Socket.IO
 io.engine.use(sessionMiddleware);
@@ -138,9 +169,9 @@ io.on('connection', (socket) => {
         total
     };
 
-    // Adiciona ao histórico em memória (e salva no DB, se a conexão estiver ativa)
+    // Adiciona ao histórico em memória (e salva no DB)
     diceHistory.unshift(rollData);
-    if (diceHistory.length > 50) { // Mantém o histórico em memória limitado
+    if (diceHistory.length > 50) { 
         diceHistory.pop();
     }
 
@@ -159,28 +190,24 @@ io.on('connection', (socket) => {
   // Handler de adição de personagem (MANTIDO)
   socket.on('add', async (novoPersonagem) => {
     if (!novoPersonagem.id) return;
-    personagens[novoPersonagem.id] = novoPersonagem;
+    personagens[novoPersonagem.id] = novoPersonagem; // Adiciona em memória
     try {
         await personagensCollection.insertOne(novoPersonagem);
     } catch (e) {
         console.error("[SERVER] Erro ao adicionar personagem no DB:", e);
     }
-    io.emit('init', personagens);
+    io.emit('init', personagens); // Envia o objeto atualizado
   });
 
   // Handler de atualização de personagem (MANTIDO)
   socket.on('update', async (camposParaAtualizar) => {
     const { id } = camposParaAtualizar;
-    if (!id) return;
+    if (!id || !personagens[id]) return;
 
     // Atualiza o objeto em memória
-    if (personagens[id]) {
-        Object.assign(personagens[id], camposParaAtualizar);
-    } else {
-        return; // Personagem não encontrado em memória
-    }
+    Object.assign(personagens[id], camposParaAtualizar);
 
-    // Sanitiza e atualiza no DB (MANTIDO)
+    // Sanitiza e atualiza no DB
     ['vida', 'vidaMax', 'sanidade', 'sanidadeMax', 'pe', 'peMax'].forEach(stat => {
       if (camposParaAtualizar[stat] !== undefined) {
         let valorAtualizado = camposParaAtualizar[stat];
@@ -191,29 +218,39 @@ io.on('connection', (socket) => {
       }
     });
 
-    await personagensCollection.updateOne({ id: id }, { $set: camposParaAtualizar });
-    io.emit('update', { id, ...camposParaAtualizar });
+    try {
+        await personagensCollection.updateOne({ id: id }, { $set: camposParaAtualizar });
+        io.emit('update', { id, ...camposParaAtualizar });
+    } catch (e) {
+        console.error("[SERVER] Erro ao atualizar personagem no DB:", e);
+    }
   });
 
-  // Handlers de renomear e remover (MANTIDOS)
+  // Handlers de renomear e remover (MANTIDOS e AJUSTADOS para memória)
   socket.on('rename', async ({ oldId, newId }) => {
-    if (!oldId || !newId) return;
+    if (!oldId || !newId || !personagens[oldId]) return;
     const personagem = personagens[oldId];
-    if (!personagem) return;
-    
     personagem.id = newId;
     personagens[newId] = personagem;
     delete personagens[oldId];
 
-    await personagensCollection.updateOne({ id: oldId }, { $set: { id: newId } });
-    io.emit('init', personagens);
+    try {
+        await personagensCollection.updateOne({ id: oldId }, { $set: { id: newId } });
+        io.emit('init', personagens);
+    } catch (e) {
+        console.error("[SERVER] Erro ao renomear no DB:", e);
+    }
   });
 
   socket.on('remove', async (id) => {
-    if (!id) return;
+    if (!id || !personagens[id]) return;
     delete personagens[id];
-    await personagensCollection.deleteOne({ id: id });
-    io.emit('init', personagens);
+    try {
+        await personagensCollection.deleteOne({ id: id });
+        io.emit('init', personagens);
+    } catch (e) {
+        console.error("[SERVER] Erro ao remover no DB:", e);
+    }
   });
 
   socket.on('disconnect', () => {
@@ -221,34 +258,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// --- FUNÇÕES DE INICIALIZAÇÃO DO SERVIDOR (MODIFICADA) ---
-
-let personagens = {};
-
-async function carregarPersonagens() {
-    try {
-        const docs = await personagensCollection.find({}).toArray();
-        const data = {};
-        docs.forEach(doc => {
-            data[doc.id] = doc;
-        });
-        return data;
-    } catch (e) {
-        console.error("[SERVER] Erro ao carregar personagens:", e);
-        return {};
-    }
-}
-
-async function carregarHistorico() {
-    try {
-        // Carrega os 50 mais recentes
-        const docs = await diceHistoryCollection.find({}).sort({ timestamp: -1 }).limit(50).toArray();
-        return docs;
-    } catch (e) {
-        console.error("[SERVER] Erro ao carregar histórico de dados:", e);
-        return [];
-    }
-}
+// --- FUNÇÕES DE INICIALIZAÇÃO DO SERVIDOR (AJUSTADA) ---
 
 async function startServer() {
     try {
