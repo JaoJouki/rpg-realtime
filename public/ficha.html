@@ -31,7 +31,6 @@
   <script>
     const socket = io();
     let personagem = null;
-    let diceToRoll = [];
     const container = document.getElementById('personagem-container');
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
@@ -48,6 +47,7 @@
       }
       
       const p = personagem;
+      // A barra visual é limitada em 100%, mesmo que o valor passe do máximo.
       const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
       const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
       const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
@@ -86,63 +86,22 @@
               <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
             </div>
           </div>
-          
-          <div style="margin-top: 15px; border-top: 1px solid #444; padding-top: 15px;">
-            <div style="display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 10px;">
-              <button class="btn-small" data-action="add-dice" data-dice="4">d4</button>
-              <button class="btn-small" data-action="add-dice" data-dice="6">d6</button>
-              <button class="btn-small" data-action="add-dice" data-dice="8">d8</button>
-              <button class="btn-small" data-action="add-dice" data-dice="10">d10</button>
-              <button class="btn-small" data-action="add-dice" data-dice="12">d12</button>
-              <button class="btn-small" data-action="add-dice" data-dice="20">d20</button>
-              <button class="btn-small" data-action="add-dice" data-dice="100">d100</button>
-            </div>
-            Bônus: <input class="inline-input" id="bonus-input" type="number" value="0" placeholder="Bônus" style="width: 50px;">
-            <div id="dice-rolling-display" style="min-height: 20px; margin-bottom: 10px;"></div>
-            <button class="btn-small" data-action="roll-dice" style="width: 100%; padding: 10px; background: #27ae60; font-weight: bold;">Rolar</button>
-            <div id="dice-result-display" style="min-height: 20px; margin-top: 10px; font-weight: bold;"></div>
-          </div>
         </div>
       `;
       container.innerHTML = cardHTML;
-      updateDiceRollingDisplay();
     }
     
-    function updateDiceRollingDisplay() {
-        const display = document.getElementById('dice-rolling-display');
-        if(display) {
-            const diceCounts = diceToRoll.reduce((acc, dice) => {
-                acc[dice] = (acc[dice] || 0) + 1;
-                return acc;
-            }, {});
-            
-            const diceStrings = Object.entries(diceCounts).map(([dice, count]) => `${count}d${dice}`);
-            display.textContent = diceStrings.join(' + ');
-        }
-    }
-
     container.addEventListener('click', (e) => {
-      const element = e.target.closest('[data-action]');
+      const element = e.target.closest('[data-action="change-stat"]');
       if (!element || !personagem) return;
-      const action = element.dataset.action;
+      
+      const stat = element.dataset.stat;
+      const delta = parseInt(element.dataset.delta);
+      let novoValor = personagem[stat] + delta;
 
-      if (action === 'change-stat') {
-          const stat = element.dataset.stat;
-          const delta = parseInt(element.dataset.delta);
-          let novoValor = personagem[stat] + delta;
-          if (novoValor < 0) novoValor = 0;
-          socket.emit('update', { id: personagemId, [stat]: novoValor });
-      } else if(action === 'add-dice') {
-          diceToRoll.push(parseInt(e.target.dataset.dice));
-          updateDiceRollingDisplay();
-      } else if(action === 'roll-dice') {
-          const bonus = parseInt(document.getElementById('bonus-input').value) || 0;
-          if(diceToRoll.length > 0) {
-              socket.emit('roll', { id: personagemId, dice: diceToRoll, bonus: bonus });
-          }
-          diceToRoll = [];
-          updateDiceRollingDisplay();
-      }
+      if (novoValor < 0) novoValor = 0;
+      
+      socket.emit('update', { id: personagemId, [stat]: novoValor });
     });
 
     container.addEventListener('change', (e) => {
@@ -174,15 +133,6 @@
         Object.assign(personagem, data);
         render();
       }
-    });
-
-    socket.on('rollResult', (data) => {
-        if (data.id === personagemId) {
-            const resultDisplay = document.getElementById('dice-result-display');
-            if(resultDisplay) {
-                resultDisplay.textContent = `Resultado: ${data.total} (Rolagens: ${data.rolls.join(', ')}; Bônus: ${data.bonus})`;
-            }
-        }
     });
 
     socket.on('connect', () => {
