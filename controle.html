@@ -10,50 +10,11 @@
   <style>
     @font-face { font-family:"Heroes Assemble 3D Italic"; src: url("/fonts/heroesassemble3dital.ttf") format("truetype"); }
     body{ font-family:"Heroes Assemble 3D Italic", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; }
-    h1, h2 { text-align:center; }
+    h1{ text-align:center; }
     #addForm{ background:#1f1f1f; padding:18px; border-radius:12px; max-width:700px; margin:0 auto 18px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     #addForm input, #addForm button{ padding:8px; border-radius:6px; border:0; background: #333; color: #fff;}
     #addForm button{ grid-column:span 2; background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; }
-    
-    /* --- NOVOS ESTILOS PARA LAYOUT E HISTÓRICO --- */
-    .main-container {
-        display: flex;
-        gap: 20px;
-        align-items: flex-start;
-    }
-    #personagens-container {
-        flex: 3;
-    }
     #personagens{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; }
-    #roll-history-container {
-        flex: 1;
-        background: #1f1f1f;
-        border-radius: 12px;
-        padding: 10px 20px;
-        max-height: 80vh;
-        overflow-y: auto;
-    }
-    .history-entry {
-        border-bottom: 1px solid #333;
-        padding: 12px 0;
-    }
-    .history-entry:first-child {
-        border-top: none;
-    }
-    .history-header {
-      font-weight: bold;
-      color: #27ae60;
-    }
-    .history-result {
-      font-size: 1.5em;
-      font-weight: bold;
-    }
-    .history-details {
-      font-size: 0.9em;
-      color: #aaa;
-    }
-    /* --- FIM DOS NOVOS ESTILOS --- */
-
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; cursor:pointer; }
     .name{ font-weight:700; margin-bottom:10px; cursor:pointer; }
@@ -84,23 +45,19 @@
       <button type="submit">Adicionar Personagem</button>
   </form>
 
-  <div class="main-container">
-    <div id="personagens-container">
-      <div id="personagens"></div>
-    </div>
-    <div id="roll-history-container">
-        <h2>Histórico de Rolagens</h2>
-        <div id="history-log"></div>
-    </div>
-  </div>
+  <div id="personagens"></div>
 
+  <div id="dice-history-container" style="max-width: 700px; margin: 20px auto; background: #1f1f1f; padding: 18px; border-radius: 12px;">
+    <h2 style="text-align: center; margin-top: 0;">Histórico de Rolagens</h2>
+    <div id="dice-history" style="max-height: 200px; overflow-y: auto;"></div>
+  </div>
 
   <script>
     const socket = io();
     let personagens = {};
     const form = document.getElementById('addForm');
     const container = document.getElementById('personagens');
-    const historyLog = document.getElementById('history-log'); // Novo
+    const diceHistoryContainer = document.getElementById('dice-history');
 
     function render() {
       container.innerHTML = '';
@@ -253,24 +210,12 @@
         render();
       }
     });
-
-    // --- NOVA LÓGICA PARA HISTÓRICO DE ROLAGENS ---
-    socket.on('diceResult', ({ characterId, roll, result, details }) => {
-        const entryHTML = `
-            <div class="history-entry">
-                <div class="history-header">${characterId} rolou ${roll}</div>
-                <div class="history-result">Resultado: ${result}</div>
-                <div class="history-details">${details}</div>
-            </div>
-        `;
-        historyLog.insertAdjacentHTML('afterbegin', entryHTML);
-
-        // Limita o histórico para os últimos 30 registros para não sobrecarregar
-        if (historyLog.children.length > 30) {
-            historyLog.lastElementChild.remove();
-        }
+    
+    socket.on('rollResult', (data) => {
+        const newRoll = document.createElement('div');
+        newRoll.innerHTML = `<b>${data.id}</b> rolou <b>${data.total}</b> <i>(Rolagens: ${data.rolls.join(', ')}; Bônus: ${data.bonus})</i>`;
+        diceHistoryContainer.prepend(newRoll);
     });
-    // --- FIM DA LÓGICA ---
 
     socket.on('connect', () => console.log('[CLIENT] Conectado ao servidor.'));
   </script>

@@ -113,37 +113,16 @@ io.on('connection', async (socket) => {
     await personagensCollection.deleteOne({ id: id });
     io.emit('init', await carregarPersonagens());
   });
-  
-  // --- NOVO EVENTO DE ROLAGEM DE DADOS ---
-  socket.on('rollDice', (data) => {
-    const { characterId, dice } = data;
-    if (!characterId || !dice) return;
 
-    let totalResult = 0;
-    let rollString = [];
-    let detailsString = [];
+  socket.on('roll', (data) => {
+    const { id, dice, bonus } = data;
+    if (!id || !dice || !Array.isArray(dice)) return;
 
-    Object.entries(dice).forEach(([dieSize, count]) => {
-      if (count > 0) {
-        rollString.push(`${count}d${dieSize}`);
-        let rolls = [];
-        for (let i = 0; i < count; i++) {
-          const roll = Math.floor(Math.random() * parseInt(dieSize)) + 1;
-          totalResult += roll;
-          rolls.push(roll);
-        }
-        detailsString.push(`${count}d${dieSize} (${rolls.join(', ')})`);
-      }
-    });
-    
-    io.emit('diceResult', {
-        characterId: characterId,
-        roll: rollString.join(' + '),
-        result: totalResult,
-        details: detailsString.join(' + ')
-    });
+    const rolls = dice.map(d => Math.floor(Math.random() * d) + 1);
+    const total = rolls.reduce((sum, roll) => sum + roll, 0) + bonus;
+
+    io.emit('rollResult', { id, dice, bonus, rolls, total });
   });
-  // --- FIM DO NOVO EVENTO ---
 
   socket.on('disconnect', () => {
     console.log(`[SERVER] Cliente desconectado: ${socket.id}`);

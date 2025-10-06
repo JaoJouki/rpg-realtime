@@ -15,8 +15,8 @@
     body { margin:0; background:transparent; font-family:"Heroes Assemble", Arial, sans-serif; }
     #overlays { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; padding:10px; }
 
-    /* --- Seus Estilos de Card de Personagem (MANTIDOS) --- */
     .card { position:relative; width:720px; height:480px; }
+
     .portrait-container {
         position: absolute;
         left: 40px;
@@ -27,6 +27,7 @@
         overflow: hidden; 
         z-index: 1;
     }
+
     .portrait-image {
         width: 100%;
         height: 100%;
@@ -35,265 +36,106 @@
         position: relative;
         transition: filter 1s ease-in-out;
     }
+
     .portrait-border {
         position:absolute;
         left:30px;
-        top:45px;
+        top:40px;
         width:320px;
         height:320px;
         border-radius:50%;
         border:12px solid rgba(10,10,10,0.95);
         background-color: transparent;
-        z-index: 2;
+        z-index: 2; 
         pointer-events: none;
     }
-    .portrait-image.dead { filter: grayscale(100%) brightness(0); }
-    .name { 
-        position:absolute; 
-        left:370px; 
-        top:36px; 
-        font-size:100px; 
-        color:#fff; 
-        transform:rotate(-8deg); 
+
+    .portrait-image.dead {
+        filter: grayscale(100%) brightness(0);
+    }
+
+    .name {
+        position:absolute;
+        left:370px;
+        top:36px;
+        font-size:100px;
+        color:#fff;
+        transform:rotate(-8deg);
         text-shadow:3px 4px 6px rgba(0,0,0,0.85);
     }
-    /* Estilos para os stats (apenas para evitar quebra no JS) */
-    .stats, .stat-group, .pe-group, .vida-large, .san-large, .pe-badge {
-        display: none; 
-    }
-    /* --- FIM Seus Estilos de Card de Personagem --- */
 
-    /* --- NOVO ESTILO: RESULTADO DA ROLAGEM SOBRE O PORTRAIT --- */
-    .roll-overlay {
-        position: absolute;
-        left: 40px;
-        top: 60px;
-        width: 320px;
-        height: 320px;
-        border-radius: 50%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 3; /* Acima do portrait */
-        display: none; /* Começa escondido */
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
+    .vida-large { position:absolute; left:370px; top:110px; font-size:128px; color:#b44245; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
+    .san-large { position:absolute; left:370px; top:225px; font-size:128px; color:#2477b8; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
+    .pe-badge { position:absolute; left:72px; bottom:84px; font-size:44px; color:#f1c40f; text-shadow:2px 2px 6px rgba(0,0,0,0.8); }
+
+    .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
+
+    .waiting-message {
+        color: #ccc;
+        font-size: 24px;
         text-align: center;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.5s;
-    }
-    .roll-overlay.active {
-        display: flex;
-        opacity: 1;
-    }
-    .roll-overlay .roll-total {
-        font-size: 8em;
-        color: #f1c40f;
-        line-height: 1em;
-        text-shadow: 4px 4px 8px rgba(0,0,0,0.9);
-    }
-    .roll-overlay .roll-expression {
-        font-size: 1.5em;
-        color: #fff;
-        margin-top: -15px;
-    }
-    /* --- FIM NOVO ESTILO --- */
-
-
-    /* --- ESTILOS VISUALIZAÇÃO DE DADOS (MANTIDO) --- */
-    #dice-animation-container {
-        display: none; 
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8); 
-        z-index: 9999; 
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
-        color: #fff;
-        backdrop-filter: blur(5px);
+        margin-top: 50px;
     }
 
-    #dice-animation {
-        width: 300px;
-        height: 300px;
-        border-radius: 12px;
-        position: relative;
-        overflow: hidden;
+    @keyframes breath-portrait {
+        0% { transform: scale(1.0); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1.0); }
     }
 
-    #dice-video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+    .portrait-image.breath {
+        animation: breath-portrait 4s ease-in-out infinite;
     }
 
-    #dice-result-display {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 8em;
-        font-weight: bold;
-        color: #f1c40f;
-        text-shadow: 4px 4px 8px rgba(0,0,0,0.9);
-        z-index: 10;
-        display: none; 
+    .card.morto .portrait-image.breath {
+        animation-play-state: paused;
     }
 
-    #dice-info {
-        margin-top: 10px;
-        font-size: 1.5em;
-        text-align: center;
-        opacity: 0;
-        transition: opacity 0.5s;
-        padding: 0 20px;
-    }
-    #dice-info.visible {
-        opacity: 1;
-    }
-    /* --- FIM ESTILOS VISUALIZAÇÃO DE DADOS --- */
   </style>
 </head>
 <body>
-  <div id="overlays">
-    </div>
+  <div id="overlays"></div>
 
-  <div id="dice-animation-container">
-    <div id="dice-animation">
-        <video id="dice-video" src="/dice.webm" preload="auto" muted></video> 
-        <div id="dice-result-display"></div>
-    </div>
-    <div id="dice-info"></div>
-  </div>
   <script>
     const socket = io();
-    const overlaysContainer = document.getElementById('overlays');
-    const diceContainer = document.getElementById('dice-animation-container');
-    const diceVideo = document.getElementById('dice-video');
-    const diceResultDisplay = document.getElementById('dice-result-display');
-    const diceInfo = document.getElementById('dice-info');
     let personagens = {};
-    let rollTimer = null;
+    const container = document.getElementById('overlays');
 
-    // --- FUNÇÕES DE VISUALIZAÇÃO DE DADOS ---
-
-    function showRollOverlay(personagemId, total, expression) {
-        const card = document.querySelector(`.card[data-personagem-id="${personagemId}"]`);
-        if (!card) return;
-
-        const rollOverlay = card.querySelector('.roll-overlay');
-        if (!rollOverlay) return;
-
-        rollOverlay.querySelector('.roll-total').innerText = total;
-        rollOverlay.querySelector('.roll-expression').innerText = expression;
-        rollOverlay.classList.add('active');
-
-        // Limpa o timer anterior se houver
-        if (rollTimer) clearTimeout(rollTimer);
-        
-        // Define um novo timer para esconder o resultado após 5 segundos
-        rollTimer = setTimeout(() => {
-            rollOverlay.classList.remove('active');
-        }, 5000);
-    }
-
-    function showRollAnimation(personagemName, diceExpression, total) {
-        diceResultDisplay.style.display = 'none';
-        diceInfo.classList.remove('visible');
-        diceInfo.innerHTML = `Rolagem de **${personagemName}**: ${diceExpression}`;
-        diceContainer.style.display = 'flex';
-        
-        diceVideo.currentTime = 0;
-        diceVideo.loop = true;
-        diceVideo.play().catch(e => console.log('Erro ao iniciar vídeo (pode ser bloqueio do navegador):', e));
-
-        const animationDuration = 3000;
-        const resultDisplayDuration = 2000; // Tempo mais curto para não conflitar com o showRollOverlay
-        
-        setTimeout(() => {
-            diceVideo.pause();
-            diceVideo.currentTime = 0; 
-
-            diceResultDisplay.innerText = total;
-            diceResultDisplay.style.display = 'block';
-            diceInfo.classList.add('visible');
-            
-            // Esconde TELA CHEIA após 2 segundos (o resultado sobre o portrait permanece)
-            setTimeout(() => {
-                diceContainer.style.display = 'none';
-                diceResultDisplay.style.display = 'none';
-                diceInfo.classList.remove('visible');
-            }, resultDisplayDuration);
-
-        }, animationDuration);
-    }
-
-
-    // --- TEMPLATE E RENDERIZAÇÃO ---
-
-    function getCardHtml(p) {
-      p.name = p.name || p.id;
-      p.portrait = p.portrait || '/images/default.jpg';
-      p.vida = p.vida || 0;
-      p.vidaMax = p.vidaMax || 1;
-      p.sanidade = p.sanidade || 0;
-      p.sanidadeMax = p.sanidadeMax || 1;
-      p.pe = p.pe || 0;
-      p.peMax = p.peMax || 1;
-      
-      const isDead = p.vida <= 0;
-      const portraitClass = isDead ? 'portrait-image dead' : 'portrait-image';
-
-      return `
-        <div class="card" data-personagem-id="${p.id}">
-          <div class="portrait-border"></div>
-          
-          <div class="roll-overlay">
-            <span class="roll-total">0</span>
-            <span class="roll-expression"></span>
-          </div>
-          <div class="portrait-container">
-            <div class="${portraitClass}" style="background-image: url('${p.portrait}');"></div>
-          </div>
-          <div class="name">${p.name}</div>
-          
-          <div class="stats">
-              <div class="stat-group">
-                  <span class="stat-label">Vida:</span>
-                  <span class="vida-large">${p.vida}/${p.vidaMax}</span>
-              </div>
-              <div class="stat-group">
-                  <span class="stat-label">Sanidade:</span>
-                  <span class="san-large">${p.sanidade}/${p.sanidadeMax}</span>
-              </div>
-              <div class="pe-group">
-                  <span class="pe-label">PE:</span>
-                  <span class="pe-badge">${p.pe}/${p.peMax}</span>
-              </div>
-          </div>
-        </div>
-      `;
-    }
+    const params = new URLSearchParams(window.location.search);
+    const personagemId = params.get('personagem');
 
     function render() {
-      overlaysContainer.innerHTML = Object.values(personagens).map(getCardHtml).join('');
+      container.innerHTML = '';
+
+      if (!personagemId) {
+        container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
+        return;
+      }
+
+      const p = personagens[personagemId];
+
+      if (p) {
+        const isDead = p.vida <= 0;
+        const portraitImageClass = isDead ? 'portrait-image dead' : 'portrait-image breath';
+        const cardClass = isDead ? 'card morto' : 'card';
+
+        const cardHTML = `
+          <div class="${cardClass}" data-personagem-id="${personagemId}">
+            <div class="portrait-container">
+                <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
+            </div>
+            <div class="portrait-border"></div>
+            <div class="name">${personagemId}</div>
+            <div class="vida-large ${p.vidaVisivel === false ? 'status-hidden' : ''}">${p.vida}/${p.vidaMax}</div>
+            <div class="san-large ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">${p.sanidade}/${p.sanidadeMax}</div>
+            <div class="pe-badge ${p.peVisivel === false ? 'status-hidden' : ''}">${p.pe}/${p.peMax}</div>
+          </div>
+        `;
+        container.innerHTML = cardHTML;
+      } else {
+        container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
+      }
     }
-
-    // --- LISTENERS DE SOCKET.IO ---
-
-    socket.on('rollResult', (data) => {
-        const personagemName = data.personagemName || data.personagemId;
-        
-        // 1. Mostrar Animação na tela cheia
-        showRollAnimation(personagemName, data.expression, data.total);
-
-        // 2. Mostrar Resultado sobre o portrait do personagem
-        showRollOverlay(data.personagemId, data.total, data.expression);
-    });
 
     socket.on('init', (data) => {
       personagens = data || {};
@@ -301,24 +143,24 @@
     });
 
     socket.on('update', (data) => {
-        if (data && data.id) {
+        if (data && data.id === personagemId) {
             if (!personagens[data.id]) {
                 personagens[data.id] = {};
             }
-            
+
             const wasAlive = personagens[data.id].vida > 0;
             Object.assign(personagens[data.id], data);
             const isNowDead = personagens[data.id].vida <= 0;
 
-            if ((wasAlive !== isNowDead)) { 
+            if ((wasAlive && isNowDead) || (!wasAlive && !isNowDead)) {
                 render();
-            } else { 
-                const card = document.querySelector(`.card[data-personagem-id=\"${data.id}\"]`);
+            } else {
+                const card = document.querySelector(`.card[data-personagem-id="${personagemId}"]`);
                 if (card) {
-                    const p = personagens[data.id];
-                    if(card.querySelector('.vida-large')) card.querySelector('.vida-large').innerText = `${p.vida}/${p.vidaMax}`;
-                    if(card.querySelector('.san-large')) card.querySelector('.san-large').innerText = `${p.sanidade}/${p.sanidadeMax}`;
-                    if(card.querySelector('.pe-badge')) card.querySelector('.pe-badge').innerText = `${p.pe}/${p.peMax}`;
+                    const p = personagens[personagemId];
+                    card.querySelector('.vida-large').innerText = `${p.vida}/${p.vidaMax}`;
+                    card.querySelector('.san-large').innerText = `${p.sanidade}/${p.sanidadeMax}`;
+                    card.querySelector('.pe-badge').innerText = `${p.pe}/${p.peMax}`;
                 } else {
                     render();
                 }
@@ -326,8 +168,12 @@
         }
     });
 
+
     socket.on('connect', () => {
-        console.log('[OVERLAY] Conectado ao servidor');
+        console.log('[OVERLAY] Conectado ao servidor.');
+        if (personagemId) {
+            document.title = `Overlay - ${personagemId}`;
+        }
     });
   </script>
 </body>

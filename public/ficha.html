@@ -13,319 +13,152 @@
     #personagem-container{ display:flex; justify-content:center; }
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; }
-    .name{ font-weight:700; margin-bottom:10px; }
+    .name{ font-weight:700; margin-bottom:10px; font-size: 1.2em; }
     .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
     .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
     .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
-    .vida{ background:#e74c3c; }
-    .sanidade{ background:#3498db; }
-    .pe{ background:#f1c40f; color:#000; }
-    .btn-action{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; color:#fff; cursor:pointer; font-weight:700; font-size: 1em; }
-    .btn-action:hover{ background:rgba(255,255,255,0.15); }
+    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
     .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
-
-    /* --- NOVO CSS PARA ROLAGEM DE DADOS --- */
-    .dice-roller-container {
-        margin-top: 20px;
-        padding: 15px;
-        background: #2a2a2a;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-    .dice-buttons {
-        display: flex;
-        flex-wrap: wrap; 
-        justify-content: space-around;
-        gap: 5px;
-        margin-bottom: 15px;
-    }
-    .dice-button {
-        flex: 1 1 30%; 
-        background: #444;
-        color: #fff;
-        border: 2px solid #555;
-        border-radius: 4px;
-        padding: 8px 0;
-        cursor: pointer;
-        font-weight: bold;
-        transition: background 0.2s, transform 0.1s;
-        font-size: 0.9em;
-        min-width: 40px;
-    }
-    .dice-button.active {
-        background: #e74c3c; 
-        border-color: #c0392b;
-    }
-    .dice-button:hover:not(.active) {
-        background: #555;
-    }
-    .roll-display {
-        background: #1f1f1f;
-        padding: 8px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        font-size: 1.2em;
-        text-align: center;
-        min-height: 20px;
-        word-break: break-all;
-    }
-    .custom-dice-group {
-        display: flex;
-        gap: 5px;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    #custom-dice-input {
-        flex-grow: 1;
-        padding: 8px;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        text-align: center;
-    }
-    #confirm-roll-btn {
-        width: 100%;
-        background: #27ae60;
-        color: #fff;
-        border: none;
-        padding: 12px;
-        border-radius: 4px;
-        font-weight: bold;
-        cursor: pointer;
-        font-size: 1.1em;
-        transition: background 0.2s;
-    }
-    #confirm-roll-btn:disabled {
-        background: #4a4a4a;
-        cursor: not-allowed;
-    }
-    #confirm-roll-btn:hover:not(:disabled) {
-        background: #2ecc71;
-    }
-    #last-roll-result {
-        text-align: center;
-        margin-top: 10px;
-        padding: 12px; /* Aumenta o padding */
-        background: #333; /* Cor de fundo diferente */
-        border: 2px solid #f1c40f; /* Borda amarela */
-        border-radius: 4px;
-        min-height: 20px;
-        font-size: 1.1em; /* Fonte ligeiramente maior */
-    }
+    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
+    .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
+    .waiting-message { color: #ccc; font-size: 24px; text-align: center; }
   </style>
 </head>
 <body>
-  <div id="personagem-container">
-    </div>
+
+  <div id="personagem-container"></div>
 
   <script>
     const socket = io();
-    const urlParams = new URLSearchParams(window.location.search);
-    const personagemId = urlParams.get('id');
-    const container = document.getElementById('personagem-container');
     let personagem = null;
-    let selectedDice = {}; // { d6: 0, d10: 0, ... }
-
-    // --- FUNÇÕES DE ROLAGEM DE DADOS ---
-
-    function updateDiceDisplay() {
-        let expression = '';
-        const diceTypes = [20, 12, 10, 8, 6, 4]; 
-        
-        for(const sides of diceTypes) {
-            const count = selectedDice[`d${sides}`] || 0;
-            if (count > 0) {
-                if (expression !== '') expression += ' + ';
-                expression += `${count}d${sides}`;
-            }
-        }
-
-        const customExpression = document.getElementById('custom-dice-input').value.trim();
-        if (customExpression && /^\d+d\d+([+\s]*\d+d\d+)*$/.test(customExpression)) {
-             if (expression !== '') expression += ' + ';
-             expression += customExpression;
-        }
-
-        document.getElementById('current-roll-expression').innerText = expression || 'Nenhum dado selecionado';
-        document.getElementById('confirm-roll-btn').disabled = !expression;
-    }
-
-    function handleDiceButtonClick(sides) {
-        const key = `d${sides}`;
-        selectedDice[key] = (selectedDice[key] || 0) + 1;
-        updateDiceButtonUI(sides);
-        updateDiceDisplay();
-    }
-
-    function updateDiceButtonUI(sides) {
-        const key = `d${sides}`;
-        const count = selectedDice[key] || 0;
-        const button = document.querySelector(`.dice-button[data-sides="${sides}"]`);
-        if (button) {
-            if (count > 0) {
-                button.innerText = `${count}d${sides}`;
-                button.classList.add('active');
-            } else {
-                button.innerText = `1d${sides}`;
-                button.classList.remove('active');
-            }
-        }
-    }
-
-    function resetDiceSelection() {
-        selectedDice = {};
-        [4, 6, 8, 10, 12, 20].forEach(sides => updateDiceButtonUI(sides));
-        document.getElementById('custom-dice-input').value = '';
-        updateDiceDisplay();
-    }
-
-    function confirmRoll() {
-        const diceExpression = document.getElementById('current-roll-expression').innerText;
-        if (personagem && diceExpression && diceExpression !== 'Nenhum dado selecionado') {
-            socket.emit('rollDice', { personagemId, diceExpression });
-            document.getElementById('last-roll-result').innerHTML = `Rolando **${diceExpression}**... Aguarde o resultado.`;
-            // Não chame resetDiceSelection() aqui para manter o dado selecionado
-        }
-    }
-
-    // --- TEMPLATE E RENDERIZAÇÃO ---
-
-    function getRollDisplayHTML() {
-        return `
-            <div class="dice-roller-container">
-                <div class="dice-buttons">
-                    <button class="dice-button" data-sides="4">1d4</button>
-                    <button class="dice-button" data-sides="6">1d6</button>
-                    <button class="dice-button" data-sides="8">1d8</button>
-                    <button class="dice-button" data-sides="10">1d10</button>
-                    <button class="dice-button" data-sides="12">1d12</button>
-                    <button class="dice-button" data-sides="20">1d20</button>
-                </div>
-
-                <div class="custom-dice-group">
-                    <label for="custom-dice-input">Customizar:</label>
-                    <input type="text" id="custom-dice-input" placeholder="ex: 1d10+1d6">
-                </div>
-
-                <div class="roll-display">
-                    Expressão: <span id="current-roll-expression">Nenhum dado selecionado</span>
-                </div>
-                
-                <button id="confirm-roll-btn" disabled>Confirmar Rolagem</button>
-
-                <button class="btn-action" onclick="resetDiceSelection()" style="width: 100%; margin-top: 5px;">Limpar Seleção</button>
-
-                <div id="last-roll-result">Aguardando sua primeira rolagem...</div>
-            </div>
-        `;
-    }
-
-    function getCardHtml(p) {
-      const vidaPercent = (p.vida || 0) / (p.vidaMax || 1) * 100;
-      const sanidadePercent = (p.sanidade || 0) / (p.sanidadeMax || 1) * 100;
-      const pePercent = (p.pe || 0) / (p.peMax || 1) * 100;
-
-      return `
-        <div class="card" data-id="${p.id}">
-          <img class="portrait" src="${p.portrait || '/images/default.jpg'}" alt="${p.name}">
-          <div class="name">${p.name || p.id}</div>
-
-          <div class="status vida">
-              <div class="status-fill vida" style="width: ${vidaPercent}%;"></div>
-              <div class="status-label">
-                  <span>Vida</span>
-                  <button class="btn-action" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
-                  ${p.vida || 0}/${p.vidaMax || 0}
-                  <button class="btn-action" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
-              </div>
-          </div>
-          <div class="status sanidade">
-              <div class="status-fill sanidade" style="width: ${sanidadePercent}%;"></div>
-              <div class="status-label">
-                  <span>Sanidade</span>
-                  <button class="btn-action" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
-                  ${p.sanidade || 0}/${p.sanidadeMax || 0}
-                  <button class="btn-action" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
-              </div>
-          </div>
-          <div class="status pe">
-              <div class="status-fill pe" style="width: ${pePercent}%;"></div>
-              <div class="status-label">
-                  <span>PE</span>
-                  <button class="btn-action" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
-                  ${p.pe || 0}/${p.peMax || 0}
-                  <button class="btn-action" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
-              </div>
-          </div>
-          
-          ${getRollDisplayHTML()}
-        </div>
-      `;
-    }
+    let diceToRoll = [];
+    const container = document.getElementById('personagem-container');
+    const params = new URLSearchParams(window.location.search);
+    const personagemId = params.get('personagem');
 
     function render() {
-      if (personagem) {
-        // Guarda o HTML atual do resultado antes de renderizar
-        const lastResultHtml = document.getElementById('last-roll-result') ? document.getElementById('last-roll-result').innerHTML : 'Aguardando sua primeira rolagem...';
-
-        container.innerHTML = getCardHtml(personagem);
-        
-        // Restaura o resultado e o estado do dice roller
-        document.getElementById('last-roll-result').innerHTML = lastResultHtml;
-        [4, 6, 8, 10, 12, 20].forEach(sides => updateDiceButtonUI(sides));
-        updateDiceDisplay();
-
-
-        // --- INICIALIZAÇÃO DOS LISTENERS DE DADOS ---
-        document.querySelectorAll('.dice-button').forEach(button => {
-            button.addEventListener('click', () => handleDiceButtonClick(button.dataset.sides));
-            button.addEventListener('contextmenu', (e) => { 
-                e.preventDefault();
-                const key = `d${button.dataset.sides}`;
-                selectedDice[key] = Math.max(0, (selectedDice[key] || 0) - 1);
-                updateDiceButtonUI(button.dataset.sides);
-                updateDiceDisplay();
-            });
-        });
-
-        document.getElementById('confirm-roll-btn').addEventListener('click', confirmRoll);
-        document.getElementById('custom-dice-input').addEventListener('input', updateDiceDisplay);
-
-      } else {
-        container.innerHTML = '<h1>Personagem não encontrado.</h1>';
+      if (!personagemId) {
+        container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
+        return;
       }
+      
+      if (!personagem) {
+        container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
+        return;
+      }
+      
+      const p = personagem;
+      const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
+      const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
+      const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
+
+      const cardHTML = `
+        <div class="card" data-id="${personagemId}">
+          <img src="${p.imagem || '/images/portrait.png'}" class="portrait">
+          <div class="name">${personagemId}</div>
+
+          <div class="status ${p.vidaVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill vida" style="width:${vidaPct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
+              Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="status ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill sanidade" style="width:${sanPct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
+              San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
+            </div>
+          </div>
+
+          <div class="status ${p.peVisivel === false ? 'status-hidden' : ''}">
+            <div class="status-fill pe" style="width:${pePct}%"></div>
+            <div class="status-label">
+              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
+              PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
+              <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
+              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
+            </div>
+          </div>
+          
+          <div style="margin-top: 15px; border-top: 1px solid #444; padding-top: 15px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 10px;">
+              <button class="btn-small" data-action="add-dice" data-dice="4">d4</button>
+              <button class="btn-small" data-action="add-dice" data-dice="6">d6</button>
+              <button class="btn-small" data-action="add-dice" data-dice="8">d8</button>
+              <button class="btn-small" data-action="add-dice" data-dice="10">d10</button>
+              <button class="btn-small" data-action="add-dice" data-dice="12">d12</button>
+              <button class="btn-small" data-action="add-dice" data-dice="20">d20</button>
+              <button class="btn-small" data-action="add-dice" data-dice="100">d100</button>
+            </div>
+            Bônus: <input class="inline-input" id="bonus-input" type="number" value="0" placeholder="Bônus" style="width: 50px;">
+            <div id="dice-rolling-display" style="min-height: 20px; margin-bottom: 10px;"></div>
+            <button class="btn-small" data-action="roll-dice" style="width: 100%; padding: 10px; background: #27ae60; font-weight: bold;">Rolar</button>
+            <div id="dice-result-display" style="min-height: 20px; margin-top: 10px; font-weight: bold;"></div>
+          </div>
+        </div>
+      `;
+      container.innerHTML = cardHTML;
+      updateDiceRollingDisplay();
+    }
+    
+    function updateDiceRollingDisplay() {
+        const display = document.getElementById('dice-rolling-display');
+        if(display) {
+            const diceCounts = diceToRoll.reduce((acc, dice) => {
+                acc[dice] = (acc[dice] || 0) + 1;
+                return acc;
+            }, {});
+            
+            const diceStrings = Object.entries(diceCounts).map(([dice, count]) => `${count}d${dice}`);
+            display.textContent = diceStrings.join(' + ');
+        }
     }
 
-    // --- LISTENERS DE SOCKET.IO ---
-
     container.addEventListener('click', (e) => {
-      const element = e.target.closest('[data-action="change-stat"]');
+      const element = e.target.closest('[data-action]');
       if (!element || !personagem) return;
-      
-      const stat = element.dataset.stat;
-      const delta = parseInt(element.dataset.delta);
-      let novoValor = (personagem[stat] || 0) + delta;
+      const action = element.dataset.action;
 
-      if (novoValor < 0) novoValor = 0;
-      
-      socket.emit('update', { id: personagemId, [stat]: novoValor });
+      if (action === 'change-stat') {
+          const stat = element.dataset.stat;
+          const delta = parseInt(element.dataset.delta);
+          let novoValor = personagem[stat] + delta;
+          if (novoValor < 0) novoValor = 0;
+          socket.emit('update', { id: personagemId, [stat]: novoValor });
+      } else if(action === 'add-dice') {
+          diceToRoll.push(parseInt(e.target.dataset.dice));
+          updateDiceRollingDisplay();
+      } else if(action === 'roll-dice') {
+          const bonus = parseInt(document.getElementById('bonus-input').value) || 0;
+          if(diceToRoll.length > 0) {
+              socket.emit('roll', { id: personagemId, dice: diceToRoll, bonus: bonus });
+          }
+          diceToRoll = [];
+          updateDiceRollingDisplay();
+      }
     });
 
-    socket.on('rollResult', (data) => {
-        if (data.personagemId === personagemId) {
-            const resultDiv = document.getElementById('last-roll-result');
-            if (resultDiv) {
-                // EXIBIÇÃO DA ROLAGEM NA FICHA
-                const rollDetails = data.rolls.map(r => 
-                    `(${r.type}: ${r.results.join(', ')})`
-                ).join(' ');
-                resultDiv.innerHTML = `
-                    **TOTAL:** <span style="font-size: 1.5em; color: #2ecc71;">${data.total}</span> <br>
-                    <small>Dados Rolados: ${data.expression} (Detalhes: ${rollDetails})</small>
-                `;
-            }
+    container.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-action="update-stat"]');
+      if (!input || !personagem) return;
+      
+      const stat = input.name;
+      let valor = parseInt(input.value);
+
+      if (!isNaN(valor)) {
+        if (valor < 0) {
+          valor = 0;
+          input.value = valor;
         }
+        socket.emit('update', { id: personagemId, [stat]: valor });
+      }
     });
 
     socket.on('init', (data) => {
@@ -341,6 +174,22 @@
         Object.assign(personagem, data);
         render();
       }
+    });
+
+    socket.on('rollResult', (data) => {
+        if (data.id === personagemId) {
+            const resultDisplay = document.getElementById('dice-result-display');
+            if(resultDisplay) {
+                resultDisplay.textContent = `Resultado: ${data.total} (Rolagens: ${data.rolls.join(', ')}; Bônus: ${data.bonus})`;
+            }
+        }
+    });
+
+    socket.on('connect', () => {
+        console.log('[FICHA] Conectado ao servidor.');
+        if (personagemId) {
+            document.title = `Ficha - ${personagemId}`;
+        }
     });
   </script>
 </body>
