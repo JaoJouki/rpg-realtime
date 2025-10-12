@@ -24,7 +24,7 @@
         width: 320px;
         height: 320px;
         border-radius: 50%;
-        overflow: hidden; 
+        overflow: hidden;
         z-index: 1;
     }
 
@@ -46,53 +46,30 @@
         border-radius:50%;
         border:12px solid rgba(10,10,10,0.95);
         background-color: transparent;
-        z-index: 2; 
+        z-index: 2;
         pointer-events: none;
     }
 
-    .portrait-image.dead {
-        filter: grayscale(100%) brightness(0);
-    }
-
-    .name {
-        position:absolute;
-        left:370px;
-        top:36px;
-        font-size:100px;
-        color:#fff;
-        transform:rotate(-8deg);
-        text-shadow:3px 4px 6px rgba(0,0,0,0.85);
-    }
-
+    .portrait-image.dead { filter: grayscale(100%) brightness(0); }
+    .name { position:absolute; left:370px; top:36px; font-size:100px; color:#fff; transform:rotate(-8deg); text-shadow:3px 4px 6px rgba(0,0,0,0.85); }
     .vida-large { position:absolute; left:370px; top:110px; font-size:128px; color:#b44245; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
     .san-large { position:absolute; left:370px; top:225px; font-size:128px; color:#2477b8; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
     .pe-badge { position:absolute; left:72px; bottom:84px; font-size:44px; color:#f1c40f; text-shadow:2px 2px 6px rgba(0,0,0,0.8); }
-
     .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
-
-    .waiting-message {
-        color: #ccc;
-        font-size: 24px;
-        text-align: center;
-        margin-top: 50px;
-    }
+    .waiting-message { color: #ccc; font-size: 24px; text-align: center; margin-top: 50px; }
 
     @keyframes breath-portrait {
         0% { transform: scale(1.0); }
         50% { transform: scale(1.05); }
         100% { transform: scale(1.0); }
     }
+    .portrait-image.breath { animation: breath-portrait 4s ease-in-out infinite; }
+    .card.morto .portrait-image.breath { animation-play-state: paused; }
 
-    .portrait-image.breath {
-        animation: breath-portrait 4s ease-in-out infinite;
-    }
+    /* --- INÍCIO: NOVOS ESTILOS PARA ANIMAÇÃO DE DADO E RESULTADO --- */
 
-    .card.morto .portrait-image.breath {
-        animation-play-state: paused;
-    }
-
-    /* --- INÍCIO: ESTILOS PARA O RESULTADO DA ROLAGEM --- */
-    .roll-result-overlay {
+    /* Container principal para a animação (vídeo + número) */
+    .roll-animation-container {
         position: absolute;
         top: 0;
         left: 0;
@@ -101,20 +78,39 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        z-index: 10;
+        opacity: 0; /* Começa invisível */
+        transition: opacity 0.4s ease-in-out; /* Transição para desaparecer */
+        pointer-events: none;
+    }
+    .roll-animation-container.visible {
+        opacity: 1; /* Torna o container visível */
+    }
+
+    /* Estilo do vídeo do dado */
+    .roll-animation-container video {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    /* Estilo do texto do resultado (o número) */
+    .roll-result-text {
         font-size: 150px;
         color: #fff;
         text-shadow: 0 0 10px #000, 0 0 20px #000, 0 0 30px #000;
-        opacity: 0;
-        transition: opacity 0.5s ease-in-out;
-        pointer-events: none;
-        z-index: 10;
         -webkit-text-stroke: 3px black;
+        z-index: 11; /* Garante que o número fique sobre o vídeo */
+        opacity: 0; /* Começa invisível */
+        transform: scale(0.8); /* Efeito de zoom ao aparecer */
+        transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     }
-
-    .roll-result-overlay.visible {
-        opacity: 1;
+    .roll-result-text.visible {
+        opacity: 1; /* Torna o número visível */
+        transform: scale(1);
     }
-    /* --- FIM: ESTILOS PARA O RESULTADO DA ROLAGEM --- */
+    /* --- FIM: NOVOS ESTILOS --- */
 
   </style>
 </head>
@@ -125,21 +121,20 @@
     const socket = io();
     let personagens = {};
     const container = document.getElementById('overlays');
-    let rollResultTimeout; // Variável para controlar o timer
+    // Variáveis para controlar os timers da animação
+    let showResultTimeout;
+    let hideAllTimeout;
 
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
 
     function render() {
       container.innerHTML = '';
-
       if (!personagemId) {
         container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
         return;
       }
-
       const p = personagens[personagemId];
-
       if (p) {
         const isDead = p.vida <= 0;
         const portraitImageClass = isDead ? 'portrait-image dead' : 'portrait-image breath';
@@ -149,7 +144,11 @@
           <div class="${cardClass}" data-personagem-id="${personagemId}">
             <div class="portrait-container">
                 <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
-                <div class="roll-result-overlay"></div>
+
+                <div class="roll-animation-container">
+                    <video src="/videos/dice.webm" muted playsinline></video>
+                    <div class="roll-result-text"></div>
+                </div>
                 </div>
             <div class="portrait-border"></div>
             <div class="name">${personagemId}</div>
@@ -174,11 +173,9 @@
             if (!personagens[data.id]) {
                 personagens[data.id] = {};
             }
-
             const wasAlive = personagens[data.id].vida > 0;
             Object.assign(personagens[data.id], data);
             const isNowDead = personagens[data.id].vida <= 0;
-
             if ((wasAlive && isNowDead) || (!wasAlive && !isNowDead)) {
                 render();
             } else {
@@ -195,27 +192,44 @@
         }
     });
 
-    // --- INÍCIO: LÓGICA PARA EXIBIR A ROLAGEM DE DADOS ---
+    // --- INÍCIO: NOVA LÓGICA PARA CONTROLAR A ANIMAÇÃO DA ROLAGEM ---
     socket.on('rollResult', (data) => {
         if (data.id === personagemId) {
-            const resultDisplay = document.querySelector(`.card[data-personagem-id="${personagemId}"] .roll-result-overlay`);
-            if(resultDisplay) {
-                // Limpa qualquer timer anterior para o caso de rolagens muito rápidas
-                clearTimeout(rollResultTimeout);
+            const animContainer = document.querySelector('.roll-animation-container');
+            const video = animContainer.querySelector('video');
+            const resultText = animContainer.querySelector('.roll-result-text');
 
-                // Define o número e torna o elemento visível
-                resultDisplay.innerText = data.total;
-                resultDisplay.classList.add('visible');
+            if (animContainer && video && resultText) {
+                // Limpa timers de animações anteriores para evitar sobreposição
+                clearTimeout(showResultTimeout);
+                clearTimeout(hideAllTimeout);
 
-                // Define um timer para esconder o resultado após 4 segundos
-                rollResultTimeout = setTimeout(() => {
-                    resultDisplay.classList.remove('visible');
-                }, 4000); 
+                // Prepara para a nova animação
+                resultText.classList.remove('visible');
+                animContainer.classList.remove('visible');
+
+                // Força o navegador a reiniciar a animação CSS
+                void animContainer.offsetWidth;
+
+                // 1. Inicia a animação: torna o container visível e toca o vídeo
+                animContainer.classList.add('visible');
+                video.currentTime = 0;
+                video.play();
+
+                // 2. Agenda o aparecimento do resultado (após 500ms)
+                showResultTimeout = setTimeout(() => {
+                    resultText.innerText = data.total;
+                    resultText.classList.add('visible');
+                }, 500); // Meio segundo de delay
+
+                // 3. Agenda o desaparecimento de tudo (após 4 segundos)
+                hideAllTimeout = setTimeout(() => {
+                    animContainer.classList.remove('visible');
+                }, 4000); // Animação some após 4 segundos no total
             }
         }
     });
-    // --- FIM: LÓGICA PARA EXIBIR A ROLAGEM DE DADOS ---
-
+    // --- FIM: NOVA LÓGICA DE ANIMAÇÃO ---
 
     socket.on('connect', () => {
         console.log('[OVERLAY] Conectado ao servidor.');
