@@ -13,7 +13,7 @@
       src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
     }
     body{ font-family:"Adobe Hebrew Regular", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; display: flex; justify-content: center; align-items: center; min-height: 90vh; }
-    #personagem-container{ display:flex; justify-content:center; }
+    #personagem-container{ display:flex; flex-direction: column; align-items: center; justify-content:center; gap: 20px; }
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; }
     .name{ font-weight:700; margin-bottom:10px; font-size: 1.2em; }
@@ -25,6 +25,16 @@
     .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
     .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
     .waiting-message { color: #ccc; font-size: 24px; text-align: center; }
+
+    /* Estilos da Rolagem de Dados */
+    .dice-roller { background:#2a2a2a; padding: 15px; border-radius:8px; margin-top:15px; }
+    .dice-roller h3 { margin-top:0; text-align:center; }
+    .dice-input-group { display:flex; gap:10px; justify-content:center; margin-bottom:10px; }
+    .dice-input-group input { width:100px; text-align:center; }
+    .dice-roller button { width:100%; padding:10px; background:#27ae60; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:bold; }
+    #roll-result { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; }
+    #roll-result-display { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; background: #2a2a2a; padding: 10px; border-radius: 6px; }
+
   </style>
 </head>
 <body>
@@ -38,6 +48,22 @@
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
 
+    function parseDiceString(diceString) {
+        const regex = /(\d+)[dD](\d+)([\+\-]\d+)?/;
+        const match = diceString.replace(/\s/g, '').match(regex);
+
+        if (!match) return null;
+
+        const numDice = parseInt(match[1], 10);
+        const diceType = parseInt(match[2], 10);
+        const bonus = match[3] ? parseInt(match[3], 10) : 0;
+
+        const dice = Array(numDice).fill(diceType);
+
+        return { dice, bonus };
+    }
+
+
     function render() {
       if (!personagemId) {
         container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
@@ -50,7 +76,6 @@
       }
       
       const p = personagem;
-      // A barra visual é limitada em 100%, mesmo que o valor passe do máximo.
       const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
       const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
       const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
@@ -89,9 +114,28 @@
               <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
             </div>
           </div>
+          
+           <div class="dice-roller">
+                <h3>Rolagem de Dados</h3>
+                <div class="dice-input-group">
+                    <input class="inline-input" type="text" id="dice-string" placeholder="Ex: 2d20+5">
+                </div>
+                <button id="roll-button">Rolar</button>
+            </div>
         </div>
+        <div id="roll-result-display">Aguardando rolagem...</div>
       `;
       container.innerHTML = cardHTML;
+
+      document.getElementById('roll-button').addEventListener('click', () => {
+          const diceString = document.getElementById('dice-string').value;
+          const parsed = parseDiceString(diceString);
+          if (parsed) {
+              socket.emit('roll', { id: personagemId, ...parsed });
+          } else {
+              alert("Formato de dado inválido. Use o formato 'NdN+B', por exemplo: '2d6+3'.");
+          }
+      });
     }
     
     container.addEventListener('click', (e) => {
@@ -136,6 +180,15 @@
         Object.assign(personagem, data);
         render();
       }
+    });
+
+    socket.on('rollResult', (data) => {
+        if (data.id === personagemId) {
+            const resultDisplay = document.getElementById('roll-result-display');
+            if(resultDisplay) {
+                resultDisplay.innerHTML = `<b>Você</b> rolou <b>${data.total}</b> <i>(Dados: ${data.rolls.join(', ')}; Bônus: ${data.bonus})</i>`;
+            }
+        }
     });
 
     socket.on('connect', () => {

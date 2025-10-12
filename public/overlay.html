@@ -91,6 +91,31 @@
         animation-play-state: paused;
     }
 
+    /* --- INÍCIO: ESTILOS PARA O RESULTADO DA ROLAGEM --- */
+    .roll-result-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 150px;
+        color: #fff;
+        text-shadow: 0 0 10px #000, 0 0 20px #000, 0 0 30px #000;
+        opacity: 0;
+        transition: opacity 0.5s ease-in-out;
+        pointer-events: none;
+        z-index: 10;
+        -webkit-text-stroke: 3px black;
+    }
+
+    .roll-result-overlay.visible {
+        opacity: 1;
+    }
+    /* --- FIM: ESTILOS PARA O RESULTADO DA ROLAGEM --- */
+
   </style>
 </head>
 <body>
@@ -100,6 +125,7 @@
     const socket = io();
     let personagens = {};
     const container = document.getElementById('overlays');
+    let rollResultTimeout; // Variável para controlar o timer
 
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
@@ -123,7 +149,8 @@
           <div class="${cardClass}" data-personagem-id="${personagemId}">
             <div class="portrait-container">
                 <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
-            </div>
+                <div class="roll-result-overlay"></div>
+                </div>
             <div class="portrait-border"></div>
             <div class="name">${personagemId}</div>
             <div class="vida-large ${p.vidaVisivel === false ? 'status-hidden' : ''}">${p.vida}/${p.vidaMax}</div>
@@ -167,6 +194,27 @@
             }
         }
     });
+
+    // --- INÍCIO: LÓGICA PARA EXIBIR A ROLAGEM DE DADOS ---
+    socket.on('rollResult', (data) => {
+        if (data.id === personagemId) {
+            const resultDisplay = document.querySelector(`.card[data-personagem-id="${personagemId}"] .roll-result-overlay`);
+            if(resultDisplay) {
+                // Limpa qualquer timer anterior para o caso de rolagens muito rápidas
+                clearTimeout(rollResultTimeout);
+
+                // Define o número e torna o elemento visível
+                resultDisplay.innerText = data.total;
+                resultDisplay.classList.add('visible');
+
+                // Define um timer para esconder o resultado após 4 segundos
+                rollResultTimeout = setTimeout(() => {
+                    resultDisplay.classList.remove('visible');
+                }, 4000); 
+            }
+        }
+    });
+    // --- FIM: LÓGICA PARA EXIBIR A ROLAGEM DE DADOS ---
 
 
     socket.on('connect', () => {
