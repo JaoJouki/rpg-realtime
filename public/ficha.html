@@ -30,9 +30,14 @@
     .dice-roller { background:#2a2a2a; padding: 15px; border-radius:8px; margin-top:15px; }
     .dice-roller h3 { margin-top:0; text-align:center; }
     .dice-input-group { display:flex; flex-wrap: wrap; gap:10px; justify-content:center; margin-bottom:10px; }
-    .dice-input-group input { width:100px; text-align:center; padding:8px; border-radius:6px; border:0; background: #333; color: #fff; font-size: 1em;}
+    .dice-input-group input { width:100%; text-align:center; padding:8px; border-radius:6px; border:0; background: #333; color: #fff; font-size: 1em;}
     .dice-roller button { width:100%; padding:10px; background:#27ae60; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:bold; margin-top: 5px; }
     #roll-result-display { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; background: #2a2a2a; padding: 10px; border-radius: 6px; }
+    
+    /* Estilo para o grupo de botões de manter dados */
+    .keep-buttons-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
+    .keep-button { padding: 8px 12px; background: #333; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: bold; flex-grow: 1; }
+    .keep-button.active { background: #e67e22; } /* Cor para o botão ativado */
 
     /* Estilos das Anotações */
     .notes-card { width: 300px; }
@@ -51,6 +56,10 @@
     const container = document.getElementById('personagem-container');
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
+
+    // Variáveis de estado para os botões de manter
+    let keepHighestToggle = false;
+    let keepLowestToggle = false;
 
     function parseDiceString(diceString) {
         const regex = /(\d+)[dD](\d+)([\+\-]\d+)?/;
@@ -115,8 +124,10 @@
                 <h3>Rolagem de Dados</h3>
                 <div class="dice-input-group">
                     <input type="text" id="dice-string" placeholder="Ex: 2d20+5">
-                    <input type="number" id="keep-highest" placeholder="Manter Maior">
-                    <input type="number" id="keep-lowest" placeholder="Manter Menor">
+                </div>
+                <div class="keep-buttons-group">
+                    <button id="keep-highest-btn" class="keep-button ${keepHighestToggle ? 'active' : ''}" data-keep="highest">Manter Maior</button>
+                    <button id="keep-lowest-btn" class="keep-button ${keepLowestToggle ? 'active' : ''}" data-keep="lowest">Manter Menor</button>
                 </div>
                 <button id="roll-button">Rolar</button>
             </div>
@@ -129,13 +140,37 @@
       `;
       container.innerHTML = cardHTML;
 
+      // Adiciona event listener para os botões de manter
+      const keepHighestBtn = document.getElementById('keep-highest-btn');
+      const keepLowestBtn = document.getElementById('keep-lowest-btn');
+      
+      keepHighestBtn.addEventListener('click', () => {
+          keepHighestToggle = !keepHighestToggle;
+          keepLowestToggle = false; // Desativa o outro
+          render();
+      });
+      
+      keepLowestBtn.addEventListener('click', () => {
+          keepLowestToggle = !keepLowestToggle;
+          keepHighestToggle = false; // Desativa o outro
+          render();
+      });
+
       document.getElementById('roll-button').addEventListener('click', () => {
           const diceString = document.getElementById('dice-string').value;
           const parsed = parseDiceString(diceString);
           if (parsed) {
-              const keepHighest = parseInt(document.getElementById('keep-highest').value, 10) || null;
-              const keepLowest = parseInt(document.getElementById('keep-lowest').value, 10) || null;
+              // Determina o valor de keepHighest ou keepLowest
+              // Se o botão estiver ativo, enviamos o número 1 para o servidor (manter 1 dado)
+              const keepHighest = keepHighestToggle ? 1 : null;
+              const keepLowest = keepLowestToggle ? 1 : null;
               
+              // Verifica se foi rolado mais de 1 dado para as opções de manter
+              if ((keepHighest || keepLowest) && parsed.numDice < 2) {
+                   alert("Você precisa rolar 2 ou mais dados para usar 'Manter Maior' ou 'Manter Menor'.");
+                   return;
+              }
+
               socket.emit('roll', { id: personagemId, ...parsed, keepHighest, keepLowest });
           } else {
               alert("Formato de dado inválido. Use o formato 'NdN+B', por exemplo: '2d6+3'.");
