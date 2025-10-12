@@ -7,7 +7,7 @@ const session = require('express-session');
 const { MongoClient } = require('mongodb');
 
 // --- CONFIGURAÇÃO ---
-const MASTER_PASSWORD = 'RPGSEGURO'; 
+const MASTER_PASSWORD = 'RPGSEGURO';
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "RPGSEGURO-Potraits";
@@ -76,7 +76,7 @@ io.on('connection', async (socket) => {
 
   socket.on('add', async (data) => {
     if (!data || !data.id) return;
-    const novoPersonagem = { ...data, vidaVisivel: true, sanidadeVisivel: true, peVisivel: true };
+    const novoPersonagem = { ...data, vidaVisivel: true, sanidadeVisivel: true, peVisivel: true, anotacoes: "" };
     await personagensCollection.insertOne(novoPersonagem);
     io.emit('init', await carregarPersonagens());
   });
@@ -87,14 +87,9 @@ io.on('connection', async (socket) => {
 
     const camposParaAtualizar = { ...campos };
 
-    // Valida apenas para garantir que os valores não sejam negativos
     ['vida', 'sanidade', 'pe'].forEach(stat => {
-      if (camposParaAtualizar[stat] !== undefined) {
-        let valorAtualizado = camposParaAtualizar[stat];
-        if (valorAtualizado < 0) {
-          valorAtualizado = 0;
-        }
-        camposParaAtualizar[stat] = valorAtualizado;
+      if (camposParaAtualizar[stat] !== undefined && camposParaAtualizar[stat] < 0) {
+        camposParaAtualizar[stat] = 0;
       }
     });
 
@@ -115,13 +110,21 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('roll', (data) => {
-    const { id, dice, bonus } = data;
-    if (!id || !dice || !Array.isArray(dice)) return;
+    const { id, numDice, diceType, bonus = 0, keepHighest, keepLowest } = data;
+    if (!id || !numDice || !diceType) return;
 
-    const rolls = dice.map(d => Math.floor(Math.random() * d) + 1);
-    const total = rolls.reduce((sum, roll) => sum + roll, 0) + bonus;
+    const rolls = Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1);
+    
+    let keptRolls = [...rolls];
+    if (keepHighest && keepHighest > 0 && keepHighest < rolls.length) {
+      keptRolls = [...rolls].sort((a, b) => b - a).slice(0, keepHighest);
+    } else if (keepLowest && keepLowest > 0 && keepLowest < rolls.length) {
+      keptRolls = [...rolls].sort((a, b) => a - b).slice(0, keepLowest);
+    }
+    
+    const total = keptRolls.reduce((sum, roll) => sum + roll, 0) + bonus;
 
-    io.emit('rollResult', { id, dice, bonus, rolls, total });
+    io.emit('rollResult', { id, rolls, keptRolls, bonus, total });
   });
 
   socket.on('disconnect', () => {

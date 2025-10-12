@@ -36,6 +36,8 @@
     .btn-vis.is-hidden { opacity: 0.3; }
     .card-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
     .btn-card-action { background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; font-size: 18px; width: 30px; height: 30px; border-radius: 50%; line-height: 30px; text-align: center; }
+  
+    .notes-area { width: 95%; height: 100px; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -116,6 +118,7 @@
                 <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
               </div>
             </div>
+            <textarea class="notes-area" data-action="update-notes" placeholder="Anotações do Mestre...">${p.anotacoes || ''}</textarea>
             <button class="btn-remove" data-action="remove">Remover</button>
           </div>
         `;
@@ -180,17 +183,23 @@
     });
 
     container.addEventListener('change', (e) => {
-      const input = e.target.closest('[data-action="update-stat"]');
-      if (!input) return;
-      const id = input.closest('.card').dataset.id;
-      const stat = input.name;
-      let valor = parseInt(input.value);
-      if (!isNaN(valor)) {
-        if (valor < 0) {
-          valor = 0;
-          input.value = valor;
+      const element = e.target.closest('[data-action="update-stat"], [data-action="update-notes"]');
+      if (!element) return;
+
+      const id = element.closest('.card').dataset.id;
+      const isNotes = element.dataset.action === 'update-notes';
+      const stat = isNotes ? 'anotacoes' : element.name;
+      const value = isNotes ? element.value : parseInt(element.value, 10);
+      
+      if (isNotes) {
+        socket.emit('update', { id, [stat]: value });
+      } else if (!isNaN(value)) {
+        if (value < 0) {
+          element.value = 0;
+          socket.emit('update', { id, [stat]: 0 });
+        } else {
+          socket.emit('update', { id, [stat]: value });
         }
-        socket.emit('update', { id, [stat]: valor });
       }
     });
 
@@ -219,9 +228,29 @@
       }
     });
     
+    function formatRollResultForHistory(data) {
+        const { rolls, keptRolls, bonus, total, id } = data;
+        let rollsCopy = [...rolls];
+        const keptIndices = [];
+
+        keptRolls.forEach(keptRoll => {
+            const index = rollsCopy.indexOf(keptRoll);
+            if (index > -1) {
+                keptIndices.push(index);
+                rollsCopy[index] = null;
+            }
+        });
+
+        const formattedRolls = rolls.map((roll, index) => 
+            keptIndices.includes(index) ? `${roll}` : `<s>${roll}</s>`
+        ).join(', ');
+
+        return `<b>${id}</b> rolou <b>${total}</b> <i>(Dados: ${formattedRolls}; Bônus: ${bonus})</i>`;
+    }
+
     socket.on('rollResult', (data) => {
         const newRoll = document.createElement('div');
-        newRoll.innerHTML = `<b>${data.id}</b> rolou <b>${data.total}</b> <i>(Dados: ${data.rolls.join(', ')}; Bônus: ${data.bonus})</i>`;
+        newRoll.innerHTML = formatRollResultForHistory(data);
         diceHistoryContainer.prepend(newRoll);
     });
 

@@ -29,11 +29,15 @@
     /* Estilos da Rolagem de Dados */
     .dice-roller { background:#2a2a2a; padding: 15px; border-radius:8px; margin-top:15px; }
     .dice-roller h3 { margin-top:0; text-align:center; }
-    .dice-input-group { display:flex; gap:10px; justify-content:center; margin-bottom:10px; }
-    .dice-input-group input { width:100px; text-align:center; }
-    .dice-roller button { width:100%; padding:10px; background:#27ae60; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:bold; }
-    #roll-result { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; }
+    .dice-input-group { display:flex; flex-wrap: wrap; gap:10px; justify-content:center; margin-bottom:10px; }
+    .dice-input-group input { width:100px; text-align:center; padding:8px; border-radius:6px; border:0; background: #333; color: #fff; font-size: 1em;}
+    .dice-roller button { width:100%; padding:10px; background:#27ae60; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:bold; margin-top: 5px; }
     #roll-result-display { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; background: #2a2a2a; padding: 10px; border-radius: 6px; }
+
+    /* Estilos das Anotações */
+    .notes-card { width: 300px; }
+    .notes-card h3 { margin-top: 0; }
+    .notes-card textarea { width: 95%; height: 150px; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; }
 
   </style>
 </head>
@@ -51,25 +55,19 @@
     function parseDiceString(diceString) {
         const regex = /(\d+)[dD](\d+)([\+\-]\d+)?/;
         const match = diceString.replace(/\s/g, '').match(regex);
-
         if (!match) return null;
-
-        const numDice = parseInt(match[1], 10);
-        const diceType = parseInt(match[2], 10);
-        const bonus = match[3] ? parseInt(match[3], 10) : 0;
-
-        const dice = Array(numDice).fill(diceType);
-
-        return { dice, bonus };
+        return {
+            numDice: parseInt(match[1], 10),
+            diceType: parseInt(match[2], 10),
+            bonus: match[3] ? parseInt(match[3], 10) : 0,
+        };
     }
-
 
     function render() {
       if (!personagemId) {
         container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
         return;
       }
-      
       if (!personagem) {
         container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
         return;
@@ -94,7 +92,6 @@
               <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
             </div>
           </div>
-
           <div class="status ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">
             <div class="status-fill sanidade" style="width:${sanPct}%"></div>
             <div class="status-label">
@@ -104,7 +101,6 @@
               <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
             </div>
           </div>
-
           <div class="status ${p.peVisivel === false ? 'status-hidden' : ''}">
             <div class="status-fill pe" style="width:${pePct}%"></div>
             <div class="status-label">
@@ -118,10 +114,16 @@
            <div class="dice-roller">
                 <h3>Rolagem de Dados</h3>
                 <div class="dice-input-group">
-                    <input class="inline-input" type="text" id="dice-string" placeholder="Ex: 2d20+5">
+                    <input type="text" id="dice-string" placeholder="Ex: 2d20+5">
+                    <input type="number" id="keep-highest" placeholder="Manter Maior">
+                    <input type="number" id="keep-lowest" placeholder="Manter Menor">
                 </div>
                 <button id="roll-button">Rolar</button>
             </div>
+        </div>
+        <div class="card notes-card">
+          <h3>Anotações</h3>
+          <textarea id="notes-area" data-action="update-notes" placeholder="Suas anotações sobre o personagem...">${p.anotacoes || ''}</textarea>
         </div>
         <div id="roll-result-display">Aguardando rolagem...</div>
       `;
@@ -131,7 +133,10 @@
           const diceString = document.getElementById('dice-string').value;
           const parsed = parseDiceString(diceString);
           if (parsed) {
-              socket.emit('roll', { id: personagemId, ...parsed });
+              const keepHighest = parseInt(document.getElementById('keep-highest').value, 10) || null;
+              const keepLowest = parseInt(document.getElementById('keep-lowest').value, 10) || null;
+              
+              socket.emit('roll', { id: personagemId, ...parsed, keepHighest, keepLowest });
           } else {
               alert("Formato de dado inválido. Use o formato 'NdN+B', por exemplo: '2d6+3'.");
           }
@@ -141,29 +146,26 @@
     container.addEventListener('click', (e) => {
       const element = e.target.closest('[data-action="change-stat"]');
       if (!element || !personagem) return;
-      
       const stat = element.dataset.stat;
       const delta = parseInt(element.dataset.delta);
       let novoValor = personagem[stat] + delta;
-
       if (novoValor < 0) novoValor = 0;
-      
       socket.emit('update', { id: personagemId, [stat]: novoValor });
     });
 
     container.addEventListener('change', (e) => {
-      const input = e.target.closest('[data-action="update-stat"]');
-      if (!input || !personagem) return;
+      const element = e.target.closest('[data-action="update-stat"], [data-action="update-notes"]');
+      if (!element || !personagem) return;
       
-      const stat = input.name;
-      let valor = parseInt(input.value);
+      const stat = element.dataset.action === 'update-notes' ? 'anotacoes' : element.name;
+      const value = element.dataset.action === 'update-notes' ? element.value : parseInt(element.value);
 
-      if (!isNaN(valor)) {
-        if (valor < 0) {
-          valor = 0;
-          input.value = valor;
-        }
-        socket.emit('update', { id: personagemId, [stat]: valor });
+      if (stat === 'anotacoes') {
+        socket.emit('update', { id: personagemId, [stat]: value });
+      } else if (!isNaN(value)) {
+        let finalValue = value < 0 ? 0 : value;
+        if(value < 0) element.value = 0;
+        socket.emit('update', { id: personagemId, [stat]: finalValue });
       }
     });
 
@@ -182,11 +184,32 @@
       }
     });
 
+    function formatRollResult(data) {
+        const { rolls, keptRolls, bonus, total } = data;
+        let rollsCopy = [...rolls];
+        const keptIndices = [];
+
+        // Encontra os índices dos dados mantidos para não riscá-los
+        keptRolls.forEach(keptRoll => {
+            const index = rollsCopy.indexOf(keptRoll);
+            if (index > -1) {
+                keptIndices.push(index);
+                rollsCopy[index] = null; // Marca como usado para lidar com dados repetidos
+            }
+        });
+
+        const formattedRolls = rolls.map((roll, index) => 
+            keptIndices.includes(index) ? `${roll}` : `<s>${roll}</s>`
+        ).join(', ');
+
+        return `<b>Você</b> rolou <b>${total}</b> <i>(Dados: ${formattedRolls}; Bônus: ${bonus})</i>`;
+    }
+
     socket.on('rollResult', (data) => {
         if (data.id === personagemId) {
             const resultDisplay = document.getElementById('roll-result-display');
             if(resultDisplay) {
-                resultDisplay.innerHTML = `<b>Você</b> rolou <b>${data.total}</b> <i>(Dados: ${data.rolls.join(', ')}; Bônus: ${data.bonus})</i>`;
+                resultDisplay.innerHTML = formatRollResult(data);
             }
         }
     });
