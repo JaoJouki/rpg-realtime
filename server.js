@@ -11,7 +11,8 @@ const MASTER_PASSWORD = 'RPGSEGURO';
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "RPGSEGURO-Potraits";
-const COLLECTION_NAME = "personagens";
+const CHAR_COLLECTION = "personagens";
+const MESA_COLLECTION = "mesas"; // Nova coleção para as mesas
 // --------------------
 
 const app = express();
@@ -20,9 +21,10 @@ const io = new Server(server);
 
 let db;
 let personagensCollection;
+let mesasCollection; // Variável para a nova coleção
 
 const sessionMiddleware = session({
-  secret: 'seu-segredo-de-sessao-aleatorio',
+  secret: 'seu-segredo-de-sessao-aleatorio-super-forte',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
@@ -39,27 +41,53 @@ const checkAuth = (req, res, next) => {
   res.redirect('/login.html');
 };
 
-app.get('/', (req, res) => { res.redirect('/controle'); });
+// Rota principal agora leva para o hub de mesas
+app.get('/', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.get('/controle', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'controle.html')); });
 
 app.post('/login', (req, res) => {
   const { password } = req.body;
   if (password === MASTER_PASSWORD) {
     req.session.loggedIn = true;
-    res.redirect('/controle');
+    res.redirect('/');
   } else {
     res.redirect('/login.html?error=1');
   }
 });
 
-app.get('/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.redirect('/login.html');
-  });
+// --- NOVAS ROTAS PARA API DAS MESAS ---
+app.get('/api/mesas', checkAuth, async (req, res) => {
+    const mesas = await mesasCollection.find().toArray();
+    res.json(mesas);
 });
 
-async function carregarPersonagens() {
-    const personagensCursor = personagensCollection.find();
+app.post('/api/mesas', checkAuth, async (req, res) => {
+    const { nome, descricao } = req.body;
+    if (!nome) {
+        return res.status(400).send("O nome da mesa é obrigatório.");
+    }
+    // Cria um ID amigável para a URL
+    const mesaId = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    
+    const novaMesa = {
+        _id: mesaId,
+        nome,
+        descricao,
+        personagens: [] // Lista de IDs de personagens
+    };
+    try {
+        await mesasCollection.insertOne(novaMesa);
+        res.redirect('/');
+    } catch (e) {
+        // Lida com caso de ID duplicado
+        res.status(409).send("Uma mesa com nome similar já existe.");
+    }
+});
+
+
+async function carregarPersonagens(mesaId) {
+    if (!mesaId) return {};
+    const personagensCursor = personagensCollection.find({ mesaId: mesaId });
     const personagensArray = await personagensCursor.toArray();
     const personagensObj = {};
     personagensArray.forEach(p => {
@@ -69,44 +97,47 @@ async function carregarPersonagens() {
 }
 
 io.on('connection', async (socket) => {
-  console.log(`[SERVER] Novo cliente conectado: ${socket.id}`);
+  const mesaId = socket.handshake.query.mesaId;
+  if (!mesaId) {
+      console.log(`[SERVER] Cliente ${socket.id} conectado sem mesa especificada.`);
+      return;
+  }
+  
+  socket.join(mesaId); // Cliente entra na sala específica da mesa
+  console.log(`[SERVER] Cliente ${socket.id} entrou na sala da mesa: ${mesaId}`);
 
-  const personagensAtuais = await carregarPersonagens();
+  const personagensAtuais = await carregarPersonagens(mesaId);
   socket.emit('init', personagensAtuais);
 
   socket.on('add', async (data) => {
-    if (!data || !data.id) return;
+    if (!data || !data.id || !data.mesaId) return;
     const novoPersonagem = { ...data, vidaVisivel: true, sanidadeVisivel: true, peVisivel: true, anotacoes: "" };
+    
     await personagensCollection.insertOne(novoPersonagem);
-    io.emit('init', await carregarPersonagens());
+    await mesasCollection.updateOne({ _id: data.mesaId }, { $addToSet: { personagens: data.id } });
+    
+    io.to(mesaId).emit('init', await carregarPersonagens(mesaId));
   });
 
   socket.on('update', async (data) => {
     const { id, ...campos } = data;
     if (!id) return;
-
-    const camposParaAtualizar = { ...campos };
-
-    ['vida', 'sanidade', 'pe'].forEach(stat => {
-      if (camposParaAtualizar[stat] !== undefined && camposParaAtualizar[stat] < 0) {
-        camposParaAtualizar[stat] = 0;
-      }
-    });
-
-    await personagensCollection.updateOne({ id: id }, { $set: camposParaAtualizar });
-    io.emit('update', { id, ...camposParaAtualizar });
+    await personagensCollection.updateOne({ id: id, mesaId: mesaId }, { $set: campos });
+    io.to(mesaId).emit('update', { id, ...campos });
   });
 
   socket.on('rename', async ({ oldId, newId }) => {
     if (!oldId || !newId) return;
-    await personagensCollection.updateOne({ id: oldId }, { $set: { id: newId } });
-    io.emit('init', await carregarPersonagens());
+    await personagensCollection.updateOne({ id: oldId, mesaId: mesaId }, { $set: { id: newId } });
+    await mesasCollection.updateOne({ _id: mesaId, personagens: oldId }, { $set: { "personagens.$": newId } });
+    io.to(mesaId).emit('init', await carregarPersonagens(mesaId));
   });
 
   socket.on('remove', async (id) => {
     if (!id) return;
-    await personagensCollection.deleteOne({ id: id });
-    io.emit('init', await carregarPersonagens());
+    await personagensCollection.deleteOne({ id: id, mesaId: mesaId });
+    await mesasCollection.updateOne({ _id: mesaId }, { $pull: { personagens: id } });
+    io.to(mesaId).emit('init', await carregarPersonagens(mesaId));
   });
 
   socket.on('roll', (data) => {
@@ -124,11 +155,11 @@ io.on('connection', async (socket) => {
     
     const total = keptRolls.reduce((sum, roll) => sum + roll, 0) + bonus;
 
-    io.emit('rollResult', { id, rolls, keptRolls, bonus, total });
+    io.to(mesaId).emit('rollResult', { id, rolls, keptRolls, bonus, total });
   });
 
   socket.on('disconnect', () => {
-    console.log(`[SERVER] Cliente desconectado: ${socket.id}`);
+    console.log(`[SERVER] Cliente ${socket.id} desconectado da sala: ${mesaId}`);
   });
 });
 
@@ -138,7 +169,8 @@ async function startServer() {
         await client.connect();
         console.log("[SERVER] Conectado ao MongoDB Atlas!");
         db = client.db(DB_NAME);
-        personagensCollection = db.collection(COLLECTION_NAME);
+        personagensCollection = db.collection(CHAR_COLLECTION);
+        mesasCollection = db.collection(MESA_COLLECTION); // Inicializa a coleção de mesas
 
         server.listen(PORT, () => console.log(`[SERVER] Servidor rodando em http://localhost:${PORT}`));
     } catch (err) {

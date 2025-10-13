@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Seleção de Mesas - RPG</title>
+    <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
+    <style>
+        @font-face {
+            font-family: "Adobe Hebrew Regular";
+            src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
+        }
+        body { font-family: "Adobe Hebrew Regular", Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1, h2 { text-align: center; }
+        .mesas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+        .mesa-card, .nova-mesa-card { background: #1f1f1f; padding: 20px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+        .mesa-card h3 { margin-top: 0; color: #27ae60; }
+        .mesa-card p { color: #b3b3b3; }
+        .mesa-card a { display: block; text-align: center; padding: 12px; background: #27ae60; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input, textarea, button { padding: 10px; border-radius: 6px; border: 0; background: #333; color: #fff; font-size: 1em; }
+        textarea { resize: vertical; min-height: 80px; }
+        button { background: #3498db; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Minhas Mesas de RPG</h1>
+        <div class="mesas-grid" id="mesas-container">
+            <div class="nova-mesa-card">
+                <h2>Criar Nova Mesa</h2>
+                <form action="/api/mesas" method="POST">
+                    <input type="text" name="nome" placeholder="Nome da Mesa" required>
+                    <textarea name="descricao" placeholder="Descrição da campanha..."></textarea>
+                    <button type="submit">Criar Mesa</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function carregarMesas() {
+            const response = await fetch('/api/mesas');
+            const mesas = await response.json();
+            const container = document.getElementById('mesas-container');
+
+            // Limpa mesas antigas, mantendo o formulário
+            document.querySelectorAll('.mesa-card').forEach(card => card.remove());
+
+            mesas.forEach(mesa => {
+                const card = document.createElement('div');
+                card.className = 'mesa-card';
+                card.innerHTML = `
+                    <h3>${mesa.nome}</h3>
+                    <p>${mesa.descricao || 'Sem descrição.'}</p>
+                    <a href="/controle.html?mesa=${mesa._id}">Abrir Escudo do Mestre</a>
+                `;
+                container.prepend(card); // Adiciona no início para que o formulário fique por último
+            });
+        }
+        window.onload = carregarMesas;
+    </script>
+</body>
+</html>

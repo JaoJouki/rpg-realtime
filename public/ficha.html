@@ -34,16 +34,13 @@
     .dice-roller button { width:100%; padding:10px; background:#27ae60; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:bold; margin-top: 5px; }
     #roll-result-display { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; background: #2a2a2a; padding: 10px; border-radius: 6px; }
     
-    /* Estilo para o grupo de botões de manter dados */
     .keep-buttons-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
     .keep-button { padding: 8px 12px; background: #333; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: bold; flex-grow: 1; }
-    .keep-button.active { background: #e67e22; } /* Cor para o botão ativado */
+    .keep-button.active { background: #e67e22; }
 
-    /* Estilos das Anotações */
     .notes-card { width: 300px; }
     .notes-card h3 { margin-top: 0; }
     .notes-card textarea { width: 95%; height: 150px; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; }
-
   </style>
 </head>
 <body>
@@ -51,13 +48,16 @@
   <div id="personagem-container"></div>
 
   <script>
-    const socket = io();
-    let personagem = null;
-    const container = document.getElementById('personagem-container');
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
+    const mesaId = params.get('mesa');
 
-    // Variáveis de estado para os botões de manter
+    // Conecta ao socket na sala específica da mesa
+    const socket = io({ query: { mesaId } });
+
+    let personagem = null;
+    const container = document.getElementById('personagem-container');
+    
     let keepHighestToggle = false;
     let keepLowestToggle = false;
 
@@ -73,8 +73,8 @@
     }
 
     function render() {
-      if (!personagemId) {
-        container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
+      if (!personagemId || !mesaId) {
+        container.innerHTML = `<div class="waiting-message">Ficha inválida. Link incorreto.</div>`;
         return;
       }
       if (!personagem) {
@@ -140,19 +140,18 @@
       `;
       container.innerHTML = cardHTML;
 
-      // Adiciona event listener para os botões de manter
       const keepHighestBtn = document.getElementById('keep-highest-btn');
       const keepLowestBtn = document.getElementById('keep-lowest-btn');
       
       keepHighestBtn.addEventListener('click', () => {
           keepHighestToggle = !keepHighestToggle;
-          keepLowestToggle = false; // Desativa o outro
+          keepLowestToggle = false;
           render();
       });
       
       keepLowestBtn.addEventListener('click', () => {
           keepLowestToggle = !keepLowestToggle;
-          keepHighestToggle = false; // Desativa o outro
+          keepHighestToggle = false;
           render();
       });
 
@@ -160,12 +159,9 @@
           const diceString = document.getElementById('dice-string').value;
           const parsed = parseDiceString(diceString);
           if (parsed) {
-              // Determina o valor de keepHighest ou keepLowest
-              // Se o botão estiver ativo, enviamos o número 1 para o servidor (manter 1 dado)
               const keepHighest = keepHighestToggle ? 1 : null;
               const keepLowest = keepLowestToggle ? 1 : null;
               
-              // Verifica se foi rolado mais de 1 dado para as opções de manter
               if ((keepHighest || keepLowest) && parsed.numDice < 2) {
                    alert("Você precisa rolar 2 ou mais dados para usar 'Manter Maior' ou 'Manter Menor'.");
                    return;
@@ -224,12 +220,11 @@
         let rollsCopy = [...rolls];
         const keptIndices = [];
 
-        // Encontra os índices dos dados mantidos para não riscá-los
         keptRolls.forEach(keptRoll => {
             const index = rollsCopy.indexOf(keptRoll);
             if (index > -1) {
                 keptIndices.push(index);
-                rollsCopy[index] = null; // Marca como usado para lidar com dados repetidos
+                rollsCopy[index] = null;
             }
         });
 
