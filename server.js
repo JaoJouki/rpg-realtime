@@ -32,6 +32,7 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json()); // Adicionado para aceitar JSON no corpo da requisição
 app.use(express.static(path.join(__dirname, 'public')));
 
 const checkAuth = (req, res, next) => {
@@ -42,8 +43,6 @@ const checkAuth = (req, res, next) => {
 };
 
 // --- ROTAS ---
-
-// Páginas públicas (não precisam de autenticação de mestre)
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
@@ -51,7 +50,6 @@ app.get('/mesa.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'mesa.html'));
 });
 
-// Páginas protegidas (apenas para o mestre logado)
 app.get('/', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.get('/controle.html', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'controle.html')); });
 
@@ -87,8 +85,29 @@ app.post('/api/mesas', checkAuth, async (req, res) => {
     }
 });
 
-// O restante do seu server.js continua aqui...
-// (as funções carregarPersonagens, io.on('connection'), startServer, etc., permanecem as mesmas)
+// NOVA ROTA PARA DELETAR A MESA
+app.delete('/api/mesas/:mesaId', checkAuth, async (req, res) => {
+    const { mesaId } = req.params;
+    if (!mesaId) {
+        return res.status(400).send("ID da mesa é obrigatório.");
+    }
+    try {
+        const deleteMesaResult = await mesasCollection.deleteOne({ _id: mesaId });
+
+        if (deleteMesaResult.deletedCount === 0) {
+            return res.status(404).send("Mesa não encontrada.");
+        }
+
+        await personagensCollection.deleteMany({ mesaId: mesaId });
+
+        res.status(200).send({ message: "Mesa e personagens removidos com sucesso." });
+    } catch (e) {
+        console.error("Erro ao remover mesa:", e);
+        res.status(500).send("Erro interno ao remover a mesa.");
+    }
+});
+
+
 async function carregarPersonagens(mesaId) {
     if (!mesaId) return {};
     const personagensCursor = personagensCollection.find({ mesaId: mesaId });
