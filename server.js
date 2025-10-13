@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "RPGSEGURO-Potraits";
 const CHAR_COLLECTION = "personagens";
-const MESA_COLLECTION = "mesas"; // Nova coleção para as mesas
+const MESA_COLLECTION = "mesas";
 // --------------------
 
 const app = express();
@@ -21,7 +21,7 @@ const io = new Server(server);
 
 let db;
 let personagensCollection;
-let mesasCollection; // Variável para a nova coleção
+let mesasCollection;
 
 const sessionMiddleware = session({
   secret: 'seu-segredo-de-sessao-aleatorio-super-forte',
@@ -32,18 +32,29 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(express.urlencoded({ extended: true }));
+
+// Serve todos os arquivos estáticos (HTML, CSS, imagens) da pasta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
 const checkAuth = (req, res, next) => {
   if (req.session.loggedIn) {
     return next();
   }
+  // Redireciona para login.html, que está na pasta public
   res.redirect('/login.html');
 };
 
-// Rota principal agora leva para o hub de mesas
+// --- ROTAS PROTEGIDAS E PÚBLICAS ---
+
+// A página de login não precisa de autenticação
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// A rota principal (/) e o controle.html SÃO protegidas
 app.get('/', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
-app.get('/controle', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'controle.html')); });
+app.get('/controle.html', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'controle.html')); });
+
 
 app.post('/login', (req, res) => {
   const { password } = req.body;
@@ -55,7 +66,7 @@ app.post('/login', (req, res) => {
   }
 });
 
-// --- NOVAS ROTAS PARA API DAS MESAS ---
+// --- API PARA AS MESAS ---
 app.get('/api/mesas', checkAuth, async (req, res) => {
     const mesas = await mesasCollection.find().toArray();
     res.json(mesas);
@@ -66,20 +77,13 @@ app.post('/api/mesas', checkAuth, async (req, res) => {
     if (!nome) {
         return res.status(400).send("O nome da mesa é obrigatório.");
     }
-    // Cria um ID amigável para a URL
     const mesaId = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     
-    const novaMesa = {
-        _id: mesaId,
-        nome,
-        descricao,
-        personagens: [] // Lista de IDs de personagens
-    };
+    const novaMesa = { _id: mesaId, nome, descricao, personagens: [] };
     try {
         await mesasCollection.insertOne(novaMesa);
         res.redirect('/');
     } catch (e) {
-        // Lida com caso de ID duplicado
         res.status(409).send("Uma mesa com nome similar já existe.");
     }
 });
@@ -103,7 +107,7 @@ io.on('connection', async (socket) => {
       return;
   }
   
-  socket.join(mesaId); // Cliente entra na sala específica da mesa
+  socket.join(mesaId);
   console.log(`[SERVER] Cliente ${socket.id} entrou na sala da mesa: ${mesaId}`);
 
   const personagensAtuais = await carregarPersonagens(mesaId);
@@ -170,7 +174,7 @@ async function startServer() {
         console.log("[SERVER] Conectado ao MongoDB Atlas!");
         db = client.db(DB_NAME);
         personagensCollection = db.collection(CHAR_COLLECTION);
-        mesasCollection = db.collection(MESA_COLLECTION); // Inicializa a coleção de mesas
+        mesasCollection = db.collection(MESA_COLLECTION);
 
         server.listen(PORT, () => console.log(`[SERVER] Servidor rodando em http://localhost:${PORT}`));
     } catch (err) {
