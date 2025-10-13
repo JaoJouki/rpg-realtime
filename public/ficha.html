@@ -3,247 +3,264 @@
 <head>
   <meta charset="utf-8" />
   <title>Ficha de Personagem</title>
-
   <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
-
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-   @font-face {
+    @font-face {
       font-family: "Adobe Hebrew Regular";
       src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
     }
-    body{ font-family:"Adobe Hebrew Regular", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; display: flex; justify-content: center; align-items: center; min-height: 90vh; }
-    #personagem-container{ display:flex; flex-direction: column; align-items: center; justify-content:center; gap: 20px; }
-    .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
-    .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; }
-    .name{ font-weight:700; margin-bottom:10px; font-size: 1.2em; }
-    .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
-    .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
-    .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
-    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
-    .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
-    .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
-    .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
-    .waiting-message { color: #ccc; font-size: 24px; text-align: center; }
-
-    /* Estilos da Rolagem de Dados */
-    .dice-roller { background:#2a2a2a; padding: 15px; border-radius:8px; margin-top:15px; }
-    .dice-roller h3 { margin-top:0; text-align:center; }
-    .dice-input-group { display:flex; flex-wrap: wrap; gap:10px; justify-content:center; margin-bottom:10px; }
-    .dice-input-group input { width:100%; text-align:center; padding:8px; border-radius:6px; border:0; background: #333; color: #fff; font-size: 1em;}
-    .dice-roller button { width:100%; padding:10px; background:#27ae60; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:bold; margin-top: 5px; }
-    #roll-result-display { margin-top:15px; text-align:center; font-size:1.1em; min-height: 20px; background: #2a2a2a; padding: 10px; border-radius: 6px; }
-    
-    .keep-buttons-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
-    .keep-button { padding: 8px 12px; background: #333; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: bold; flex-grow: 1; }
-    .keep-button.active { background: #e67e22; }
-
-    .notes-card { width: 300px; }
-    .notes-card h3 { margin-top: 0; }
-    .notes-card textarea { width: 95%; height: 150px; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; }
+    body { font-family: "Adobe Hebrew Regular", Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start; }
+    #sheet-container { display: flex; flex-direction: column; gap: 20px; max-width: 700px; width: 100%; }
+    .card { background: #1f1f1f; border-radius: 10px; padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    .card h2 { margin-top: 0; border-bottom: 2px solid #27ae60; padding-bottom: 8px; }
+    .grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    label { font-weight: bold; color: #ccc; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 95%; background: #333; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 10px; font-family: inherit; font-size: 1em;
+    }
+    textarea { resize: vertical; min-height: 100px; }
+    .status-bar { background: #333; border-radius: 6px; height: 38px; position: relative; margin: 8px 0; }
+    .status-fill { height: 100%; transition: width .3s; border-radius: 6px; }
+    .status-label { position: absolute; left: 0; top: 0; width: 100%; text-align: center; line-height: 38px; font-weight: 700; display: flex; gap: 8px; justify-content: center; align-items: center; }
+    .vida { background: #e74c3c; } .sanidade { background: #3498db; }
+    .inline-input { width: 48px; text-align: center; background: transparent; border: 0; color: inherit; font-size: 1em; padding: 0; }
+    .btn-small { background: rgba(255,255,255,0.08); border: 0; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #fff; }
+    .dynamic-list .list-item { display: flex; gap: 10px; margin-bottom: 10px; }
+    .dynamic-list .list-item input { flex-grow: 1; }
+    .btn-remove-item { background: #c0392b; color: #fff; border: 0; border-radius: 6px; cursor: pointer; padding: 0 12px; font-weight: bold; }
+    .btn-add-item { background: #27ae60; color: #fff; border: 0; border-radius: 6px; cursor: pointer; padding: 10px; font-weight: bold; margin-top: 10px; }
+    .waiting-message { color: #ccc; font-size: 24px; text-align: center; margin-top: 50px; }
   </style>
 </head>
 <body>
 
-  <div id="personagem-container"></div>
+  <div id="sheet-container">
+     </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const personagemId = params.get('personagem');
     const mesaId = params.get('mesa');
-
-    // Conecta ao socket na sala específica da mesa
     const socket = io({ query: { mesaId } });
-
     let personagem = null;
-    const container = document.getElementById('personagem-container');
-    
-    let keepHighestToggle = false;
-    let keepLowestToggle = false;
+    const container = document.getElementById('sheet-container');
 
-    function parseDiceString(diceString) {
-        const regex = /(\d+)[dD](\d+)([\+\-]\d+)?/;
-        const match = diceString.replace(/\s/g, '').match(regex);
-        if (!match) return null;
-        return {
-            numDice: parseInt(match[1], 10),
-            diceType: parseInt(match[2], 10),
-            bonus: match[3] ? parseInt(match[3], 10) : 0,
-        };
-    }
+    const ESTILOS = {
+        'porradeiro': { vidaMax: 5, sanidadeMax: 3, nome: 'Porradeiro/a' },
+        'genial': { vidaMax: 3, sanidadeMax: 5, nome: 'Genial' },
+        'malandrao': { vidaMax: 3, sanidadeMax: 3, nome: 'Malandrão/na' }
+    };
 
-    function render() {
-      if (!personagemId || !mesaId) {
-        container.innerHTML = `<div class="waiting-message">Ficha inválida. Link incorreto.</div>`;
-        return;
-      }
-      if (!personagem) {
-        container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
-        return;
-      }
-      
-      const p = personagem;
-      const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
-      const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
-      const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
-
-      const cardHTML = `
-        <div class="card" data-id="${personagemId}">
-          <img src="${p.imagem || '/images/portrait.png'}" class="portrait">
-          <div class="name">${personagemId}</div>
-
-          <div class="status ${p.vidaVisivel === false ? 'status-hidden' : ''}">
-            <div class="status-fill vida" style="width:${vidaPct}%"></div>
-            <div class="status-label">
-              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
-              Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
-              <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
-              <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
-            </div>
-          </div>
-          <div class="status ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">
-            <div class="status-fill sanidade" style="width:${sanPct}%"></div>
-            <div class="status-label">
-              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
-              San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
-              <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
-              <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
-            </div>
-          </div>
-          <div class="status ${p.peVisivel === false ? 'status-hidden' : ''}">
-            <div class="status-fill pe" style="width:${pePct}%"></div>
-            <div class="status-label">
-              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
-              PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
-              <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
-              <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
-            </div>
-          </div>
-          
-           <div class="dice-roller">
-                <h3>Rolagem de Dados</h3>
-                <div class="dice-input-group">
-                    <input type="text" id="dice-string" placeholder="Ex: 2d20+5">
-                </div>
-                <div class="keep-buttons-group">
-                    <button id="keep-highest-btn" class="keep-button ${keepHighestToggle ? 'active' : ''}" data-keep="highest">Manter Maior</button>
-                    <button id="keep-lowest-btn" class="keep-button ${keepLowestToggle ? 'active' : ''}" data-keep="lowest">Manter Menor</button>
-                </div>
-                <button id="roll-button">Rolar</button>
-            </div>
-        </div>
-        <div class="card notes-card">
-          <h3>Anotações</h3>
-          <textarea id="notes-area" data-action="update-notes" placeholder="Suas anotações sobre o personagem...">${p.anotacoes || ''}</textarea>
-        </div>
-        <div id="roll-result-display">Aguardando rolagem...</div>
-      `;
-      container.innerHTML = cardHTML;
-
-      const keepHighestBtn = document.getElementById('keep-highest-btn');
-      const keepLowestBtn = document.getElementById('keep-lowest-btn');
-      
-      keepHighestBtn.addEventListener('click', () => {
-          keepHighestToggle = !keepHighestToggle;
-          keepLowestToggle = false;
-          render();
-      });
-      
-      keepLowestBtn.addEventListener('click', () => {
-          keepLowestToggle = !keepLowestToggle;
-          keepHighestToggle = false;
-          render();
-      });
-
-      document.getElementById('roll-button').addEventListener('click', () => {
-          const diceString = document.getElementById('dice-string').value;
-          const parsed = parseDiceString(diceString);
-          if (parsed) {
-              const keepHighest = keepHighestToggle ? 1 : null;
-              const keepLowest = keepLowestToggle ? 1 : null;
-              
-              if ((keepHighest || keepLowest) && parsed.numDice < 2) {
-                   alert("Você precisa rolar 2 ou mais dados para usar 'Manter Maior' ou 'Manter Menor'.");
-                   return;
-              }
-
-              socket.emit('roll', { id: personagemId, ...parsed, keepHighest, keepLowest });
-          } else {
-              alert("Formato de dado inválido. Use o formato 'NdN+B', por exemplo: '2d6+3'.");
-          }
-      });
-    }
-    
-    container.addEventListener('click', (e) => {
-      const element = e.target.closest('[data-action="change-stat"]');
-      if (!element || !personagem) return;
-      const stat = element.dataset.stat;
-      const delta = parseInt(element.dataset.delta);
-      let novoValor = personagem[stat] + delta;
-      if (novoValor < 0) novoValor = 0;
-      socket.emit('update', { id: personagemId, [stat]: novoValor });
-    });
-
-    container.addEventListener('change', (e) => {
-      const element = e.target.closest('[data-action="update-stat"], [data-action="update-notes"]');
-      if (!element || !personagem) return;
-      
-      const stat = element.dataset.action === 'update-notes' ? 'anotacoes' : element.name;
-      const value = element.dataset.action === 'update-notes' ? element.value : parseInt(element.value);
-
-      if (stat === 'anotacoes') {
-        socket.emit('update', { id: personagemId, [stat]: value });
-      } else if (!isNaN(value)) {
-        let finalValue = value < 0 ? 0 : value;
-        if(value < 0) element.value = 0;
-        socket.emit('update', { id: personagemId, [stat]: finalValue });
-      }
-    });
-
-    socket.on('init', (data) => {
-      if (data && data[personagemId]) {
-        personagem = data[personagemId];
-        render();
-      }
-    });
-
-    socket.on('update', (data) => {
-      if (data && data.id === personagemId) {
-        if (!personagem) personagem = {};
-        Object.assign(personagem, data);
-        render();
-      }
-    });
-
-    function formatRollResult(data) {
-        const { rolls, keptRolls, bonus, total } = data;
-        let rollsCopy = [...rolls];
-        const keptIndices = [];
-
-        keptRolls.forEach(keptRoll => {
-            const index = rollsCopy.indexOf(keptRoll);
-            if (index > -1) {
-                keptIndices.push(index);
-                rollsCopy[index] = null;
+    function collectFormData() {
+        const data = { id: personagemId };
+        document.querySelectorAll('[data-stat]').forEach(el => {
+            const stat = el.dataset.stat;
+            if (el.type === 'checkbox') {
+                data[stat] = el.checked;
+            } else {
+                data[stat] = el.value;
             }
         });
 
-        const formattedRolls = rolls.map((roll, index) => 
-            keptIndices.includes(index) ? `${roll}` : `<s>${roll}</s>`
-        ).join(', ');
+        data.especialidades = Array.from(document.querySelectorAll('.especialidade-item'))
+            .map(el => el.value).filter(Boolean);
+        
+        data.poderes = Array.from(document.querySelectorAll('.poder-item'))
+            .map(el => el.value).filter(Boolean);
 
-        return `<b>Você</b> rolou <b>${total}</b> <i>(Dados: ${formattedRolls}; Bônus: ${bonus})</i>`;
+        return data;
     }
 
-    socket.on('rollResult', (data) => {
-        if (data.id === personagemId) {
-            const resultDisplay = document.getElementById('roll-result-display');
-            if(resultDisplay) {
-                resultDisplay.innerHTML = formatRollResult(data);
+    function emitUpdate() {
+        const data = collectFormData();
+        socket.emit('update', data);
+    }
+    
+    function render() {
+        if (!personagemId || !mesaId) {
+            container.innerHTML = `<div class="waiting-message">Ficha inválida. Link incorreto.</div>`;
+            return;
+        }
+        if (!personagem) {
+            container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
+            return;
+        }
+
+        const p = personagem;
+        const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
+        const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
+        
+        const especialidadesHTML = (p.especialidades || []).map(item => `
+            <div class="list-item">
+                <input type="text" class="especialidade-item" value="${item}">
+                <button class="btn-remove-item" data-type="especialidade">X</button>
+            </div>
+        `).join('');
+
+        const poderesHTML = (p.poderes || []).map(item => `
+            <div class="list-item">
+                <input type="text" class="poder-item" value="${item}">
+                <button class="btn-remove-item" data-type="poder">X</button>
+            </div>
+        `).join('');
+
+        const sheetHTML = `
+            <div class="card">
+                <h2>Identidade</h2>
+                <div class="grid-2-col">
+                    <div class="form-group">
+                        <label>NOME</label>
+                        <input type="text" data-stat="nome" value="${p.nome || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>IDENTIDADE SECRETA</label>
+                        <input type="text" data-stat="identidadeSecreta" value="${p.identidadeSecreta || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>IDADE</label>
+                        <input type="text" data-stat="idade" value="${p.idade || ''}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Status</h2>
+                <div class="status-bar">
+                    <div class="status-fill vida" style="width:${vidaPct}%"></div>
+                    <div class="status-label">
+                        <button class="btn-small" data-action="change-stat" data-field="vida" data-delta="-1">-</button>
+                        Vida: <input class="inline-input" type="number" data-stat="vida" value="${p.vida}"> /
+                        <span class="max-stat">${p.vidaMax}</span>
+                        <button class="btn-small" data-action="change-stat" data-field="vida" data-delta="1">+</button>
+                    </div>
+                </div>
+                <div class="status-bar">
+                    <div class="status-fill sanidade" style="width:${sanPct}%"></div>
+                    <div class="status-label">
+                        <button class="btn-small" data-action="change-stat" data-field="sanidade" data-delta="-1">-</button>
+                        Sanidade: <input class="inline-input" type="number" data-stat="sanidade" value="${p.sanidade}"> /
+                        <span class="max-stat">${p.sanidadeMax}</span>
+                        <button class="btn-small" data-action="change-stat" data-field="sanidade" data-delta="1">+</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Perfil</h2>
+                <div class="form-group">
+                    <label>DESCRIÇÃO FÍSICA</label>
+                    <textarea data-stat="descricaoFisica">${p.descricaoFisica || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>HISTÓRIA</label>
+                    <textarea data-stat="historia">${p.historia || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>ESTILO</label>
+                    <select data-stat="estilo" id="estilo-select">
+                        <option value="">-- Escolha um Estilo --</option>
+                        <option value="porradeiro" ${p.estilo === 'porradeiro' ? 'selected' : ''}>Porradeiro/a (+1 Físico/Ataque, 5 Vida / 3 San)</option>
+                        <option value="genial" ${p.estilo === 'genial' ? 'selected' : ''}>Genial (+1 Mental/Controle, 3 Vida / 5 San)</option>
+                        <option value="malandrao" ${p.estilo === 'malandrao' ? 'selected' : ''}>Malandrão/na (+1 Social/Ágil, 3 Vida / 3 San)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Especialidades</h2>
+                <div class="dynamic-list" id="especialidades-list">${especialidadesHTML}</div>
+                <button class="btn-add-item" data-type="especialidade">Adicionar Especialidade</button>
+            </div>
+
+            <div class="card">
+                <h2>Poderes</h2>
+                <div class="dynamic-list" id="poderes-list">${poderesHTML}</div>
+                <button class="btn-add-item" data-type="poder">Adicionar Poder</button>
+            </div>
+        `;
+        container.innerHTML = sheetHTML;
+    }
+
+    container.addEventListener('change', (e) => {
+        if (e.target.matches('[data-stat]')) {
+            let data = { id: personagemId };
+            const stat = e.target.dataset.stat;
+            
+            if (stat === 'estilo') {
+                const estiloKey = e.target.value;
+                const estiloData = ESTILOS[estiloKey];
+                if (estiloData) {
+                    data.estilo = estiloKey;
+                    data.vidaMax = estiloData.vidaMax;
+                    data.sanidadeMax = estiloData.sanidadeMax;
+                    // Garante que a vida atual não ultrapasse a nova máxima
+                    if (personagem.vida > data.vidaMax) data.vida = data.vidaMax;
+                    if (personagem.sanidade > data.sanidadeMax) data.sanidade = data.sanidadeMax;
+                } else { // Caso "Escolha um Estilo" seja selecionado
+                    data.estilo = "";
+                    data.vidaMax = 1;
+                    data.sanidadeMax = 1;
+                }
+            } else {
+                data[stat] = e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value;
             }
+            socket.emit('update', data);
+        }
+    });
+    
+    container.addEventListener('blur', (e) => {
+        if (e.target.matches('.especialidade-item, .poder-item')) {
+            emitUpdate();
+        }
+    }, true);
+
+    container.addEventListener('click', (e) => {
+        if (e.target.matches('[data-action="change-stat"]')) {
+            const field = e.target.dataset.field;
+            const delta = parseInt(e.target.dataset.delta);
+            let novoValor = personagem[field] + delta;
+            if (novoValor < 0) novoValor = 0;
+            if (field === 'vida' && novoValor > personagem.vidaMax) novoValor = personagem.vidaMax;
+            if (field === 'sanidade' && novoValor > personagem.sanidadeMax) novoValor = personagem.sanidadeMax;
+            socket.emit('update', { id: personagemId, [field]: novoValor });
+        }
+
+        if (e.target.matches('.btn-add-item')) {
+            const type = e.target.dataset.type;
+            const list = document.getElementById(`${type}es-list`);
+            const newItem = document.createElement('div');
+            newItem.className = 'list-item';
+            newItem.innerHTML = `
+                <input type="text" class="${type}-item" placeholder="Nova ${type}...">
+                <button class="btn-remove-item" data-type="${type}">X</button>
+            `;
+            list.appendChild(newItem);
+            newItem.querySelector('input').focus();
+        }
+
+        if (e.target.matches('.btn-remove-item')) {
+            e.target.closest('.list-item').remove();
+            emitUpdate();
         }
     });
 
+    socket.on('init', (data) => {
+        if (data && data[personagemId]) {
+            personagem = data[personagemId];
+            render();
+        }
+    });
+
+    socket.on('update', (data) => {
+        if (data && data.id === personagemId) {
+            if (!personagem) personagem = {};
+            Object.assign(personagem, data);
+            render();
+        }
+    });
+    
     socket.on('connect', () => {
         console.log('[FICHA] Conectado ao servidor.');
         if (personagemId) {

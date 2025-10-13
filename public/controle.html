@@ -6,35 +6,29 @@
   <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    @font-face {
-      font-family: "Adobe Hebrew Regular";
-      src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
-    }
     body{ font-family: "Adobe Hebrew Regular", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; }
     h1{ text-align:center; }
     .header-nav { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px; }
     .nav-back-button { padding: 8px 16px; background: #3498db; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; }
-    #addForm{ background:#1f1f1f; padding:18px; border-radius:12px; max-width:700px; margin:0 auto 18px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    #addForm input, #addForm button{ padding:8px; border-radius:6px; border:0; background: #333; color: #fff;}
-    #addForm button{ grid-column:span 2; background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; }
+    #addForm{ background:#1f1f1f; padding:18px; border-radius:12px; max-width:400px; margin:0 auto 18px; display:grid; grid-template-columns: 1fr auto; gap:10px; }
+    #addForm input { padding:10px; border-radius:6px; border:0; background: #333; color: #fff; }
+    #addForm button { background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; padding:10px 20px; border-radius:6px; border:0; }
     #main-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
     #personagens{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; flex: 3; min-width: 320px; }
     #dice-history-container { flex: 2; min-width: 300px; background: #1f1f1f; padding: 18px; border-radius: 12px; max-height: 500px; overflow-y: auto;}
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; cursor:pointer; }
-    .name{ font-weight:700; margin-bottom:10px; cursor:pointer; }
+    .name{ font-weight:700; margin-bottom:5px; cursor:pointer; }
+    .estilo { font-style: italic; color: #ccc; margin-bottom: 10px; min-height: 20px; }
     .status{ background:#333; border-radius:6px; height:34px; position:relative; margin:8px 0; }
     .status-fill{ height:100%; transition:width .3s; border-radius:6px; }
     .status-label{ position:absolute; left:0; top:0; width:100%; text-align:center; line-height:34px; font-weight:700; display:flex; gap:8px; justify-content:center; align-items:center; }
-    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; } .pe{ background:#f1c40f; color:#000; }
+    .vida{ background:#e74c3c; } .sanidade{ background:#3498db; }
     .inline-input{ width:48px; text-align:center; background:transparent; border:0; color:inherit; font-size: 1em; }
     .btn-small{ background:rgba(255,255,255,0.08); border:0; padding:4px 8px; border-radius:4px; cursor:pointer; color:#fff; }
     .btn-remove{ background:#c0392b; color:#fff; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; margin-top:8px; }
-    .btn-vis { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 16px; padding: 0 5px; opacity: 0.8; }
-    .btn-vis.is-hidden { opacity: 0.3; }
     .card-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
     .btn-card-action { background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; font-size: 18px; width: 30px; height: 30px; border-radius: 50%; line-height: 30px; text-align: center; }
-    .notes-area { width: 95%; height: 100px; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -44,15 +38,8 @@
   </div>
   
   <form id="addForm">
-      <input name="id" type="text" placeholder="Nome (ID)" required>
-      <input name="imagem" type="text" placeholder="URL da imagem" >
-      <input name="vida" type="number" placeholder="Vida">
-      <input name="vidaMax" type="number" placeholder="Vida Máxima">
-      <input name="sanidade" type="number"  placeholder="Sanidade">
-      <input name="sanidadeMax" type="number"  placeholder="Sanidade Máxima">
-      <input name="pe" type="number"  placeholder="PE">
-      <input name="peMax" type="number"  placeholder="PE Máximo">
-      <button type="submit">Adicionar Personagem</button>
+      <input name="id" type="text" placeholder="Nome do Novo Personagem" required>
+      <button type="submit">Adicionar</button>
   </form>
 
   <div id="main-container">
@@ -66,13 +53,17 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const mesaId = params.get('mesa');
-    
     const socket = io({ query: { mesaId } });
-
     let personagens = {};
     const form = document.getElementById('addForm');
     const container = document.getElementById('personagens');
     const diceHistoryContainer = document.getElementById('dice-history');
+
+    const ESTILOS_NOME = {
+        'porradeiro': 'Porradeiro/a',
+        'genial': 'Genial',
+        'malandrao': 'Malandrão/na'
+    };
 
     if (!mesaId) {
         document.body.innerHTML = '<h1>Mesa não especificada. Volte para a página inicial e selecione uma mesa.</h1>';
@@ -81,59 +72,40 @@
         document.getElementById('back-to-lobby-btn').href = `/mesa.html?mesa=${mesaId}`;
     }
 
-    // O restante do seu JavaScript de 'controle.html' continua aqui...
-    // (a função render, os event listeners, etc., permanecem os mesmos)
     function render() {
       container.innerHTML = '';
       for (const id in personagens) {
         const p = personagens[id];
-        
         const vidaPct = p.vidaMax > 0 ? Math.min(100, (p.vida / p.vidaMax) * 100) : 0;
         const sanPct = p.sanidadeMax > 0 ? Math.min(100, (p.sanidade / p.sanidadeMax) * 100) : 0;
-        const pePct = p.peMax > 0 ? Math.min(100, (p.pe / p.peMax) * 100) : 0;
+        const estiloNome = ESTILOS_NOME[p.estilo] || 'Estilo não definido';
 
         const cardHTML = `
           <div class="card" data-id="${id}">
             <div class="card-actions">
-              <button class="btn-card-action" data-action="copy-link" title="Copiar link da ficha do jogador">🔗</button>
-              <button class="btn-card-action" data-action="open-sheet" title="Abrir ficha do jogador">📄</button>
-              <button class="btn-card-action" data-action="open-portrait" title="Abrir overlay para stream">👤</button>
+              <button class="btn-card-action" data-action="copy-link" title="Copiar link da ficha">🔗</button>
+              <button class="btn-card-action" data-action="open-sheet" title="Abrir ficha">📄</button>
+              <button class="btn-card-action" data-action="open-portrait" title="Abrir overlay">👤</button>
             </div>
-            
             <img src="${p.imagem || '/images/portrait.png'}" class="portrait" data-action="edit-image">
             <div class="name" data-action="edit-name">${id}</div>
-
+            <div class="estilo">${estiloNome}</div>
             <div class="status">
               <div class="status-fill vida" style="width:${vidaPct}%"></div>
               <div class="status-label">
-                <button class="btn-vis ${p.vidaVisivel === false ? 'is-hidden' : ''}" data-action="toggle-visibility" data-stat="vida">👁️</button>
                 <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="-1">-</button>
-                Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> /
-                <input class="inline-input" type="number" data-action="update-stat" name="vidaMax" value="${p.vidaMax}">
+                Vida: <input class="inline-input" type="number" data-action="update-stat" name="vida" value="${p.vida}"> / ${p.vidaMax}
                 <button class="btn-small" data-action="change-stat" data-stat="vida" data-delta="1">+</button>
               </div>
             </div>
             <div class="status">
               <div class="status-fill sanidade" style="width:${sanPct}%"></div>
               <div class="status-label">
-                <button class="btn-vis ${p.sanidadeVisivel === false ? 'is-hidden' : ''}" data-action="toggle-visibility" data-stat="sanidade">👁️</button>
                 <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="-1">-</button>
-                San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> /
-                <input class="inline-input" type="number" data-action="update-stat" name="sanidadeMax" value="${p.sanidadeMax}">
+                San: <input class="inline-input" type="number" data-action="update-stat" name="sanidade" value="${p.sanidade}"> / ${p.sanidadeMax}
                 <button class="btn-small" data-action="change-stat" data-stat="sanidade" data-delta="1">+</button>
               </div>
             </div>
-            <div class="status">
-              <div class="status-fill pe" style="width:${pePct}%"></div>
-              <div class="status-label">
-                <button class="btn-vis ${p.peVisivel === false ? 'is-hidden' : ''}" data-action="toggle-visibility" data-stat="pe">👁️</button>
-                <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="-1">-</button>
-                PE: <input class="inline-input" type="number" data-action="update-stat" name="pe" value="${p.pe}"> /
-                <input class="inline-input" type="number" data-action="update-stat" name="peMax" value="${p.peMax}">
-                <button class="btn-small" data-action="change-stat" data-stat="pe" data-delta="1">+</button>
-              </div>
-            </div>
-            <textarea class="notes-area" data-action="update-notes" placeholder="Anotações do Mestre...">${p.anotacoes || ''}</textarea>
             <button class="btn-remove" data-action="remove">Remover</button>
           </div>
         `;
@@ -141,101 +113,81 @@
       }
     }
     
+    // As funções de eventos (clicks, changes, submit) e socket.on permanecem majoritariamente as mesmas.
+    // Apenas ajustamos o 'change-stat' para lidar com os novos máximos.
     container.addEventListener('click', (e) => {
-      const element = e.target.closest('[data-action]');
-      if (!element) return;
-      const action = element.dataset.action;
-      const card = element.closest('.card');
-      const id = card?.dataset.id;
-      if (!id) return;
+        const element = e.target.closest('[data-action]');
+        if (!element) return;
+        const action = element.dataset.action;
+        const card = element.closest('.card');
+        const id = card?.dataset.id;
+        if (!id) return;
 
-      const urlFicha = `${window.location.origin}/ficha.html?mesa=${mesaId}&personagem=${encodeURIComponent(id)}`;
+        const p = personagens[id];
+        const urlFicha = `${window.location.origin}/ficha.html?mesa=${mesaId}&personagem=${encodeURIComponent(id)}`;
 
-      switch (action) {
-        case 'edit-image': {
-          const novaUrl = prompt('Nova URL da Imagem:', personagens[id].imagem);
-          if (novaUrl) socket.emit('update', { id, imagem: novaUrl.trim() });
-          break;
+        switch (action) {
+            case 'edit-image': {
+                const novaUrl = prompt('Nova URL da Imagem:', p.imagem);
+                if (novaUrl !== null) socket.emit('update', { id, imagem: novaUrl.trim() });
+                break;
+            }
+            case 'edit-name': {
+                const novoNome = prompt('Novo Nome:', id);
+                if (novoNome && novoNome.trim() !== id) {
+                    socket.emit('rename', { oldId: id, newId: novoNome.trim() });
+                }
+                break;
+            }
+            case 'change-stat': {
+                const stat = element.dataset.stat;
+                const delta = parseInt(element.dataset.delta);
+                let novoValor = p[stat] + delta;
+                if (novoValor < 0) novoValor = 0;
+                // Garante que o valor não ultrapasse o máximo
+                if (stat === 'vida' && novoValor > p.vidaMax) novoValor = p.vidaMax;
+                if (stat === 'sanidade' && novoValor > p.sanidadeMax) novoValor = p.sanidadeMax;
+                socket.emit('update', { id, [stat]: novoValor });
+                break;
+            }
+            case 'remove': {
+                if (confirm(`Tem certeza que deseja remover ${id}?`)) {
+                    socket.emit('remove', id);
+                }
+                break;
+            }
+            case 'open-portrait': window.open(`/overlay.html?personagem=${encodeURIComponent(id)}`); break;
+            case 'open-sheet': window.open(urlFicha, '_blank'); break;
+            case 'copy-link': {
+                navigator.clipboard.writeText(urlFicha).then(() => {
+                    alert(`Link para a ficha de ${id} copiado!`);
+                });
+                break;
+            }
         }
-        case 'edit-name': {
-          const novoNome = prompt('Novo Nome:', id);
-          if (novoNome && novoNome.trim() !== id) {
-            socket.emit('rename', { oldId: id, newId: novoNome.trim() });
-          }
-          break;
-        }
-        case 'change-stat': {
-          const stat = element.dataset.stat;
-          const delta = parseInt(element.dataset.delta);
-          const p = personagens[id];
-          let novoValor = p[stat] + delta;
-          if (novoValor < 0) novoValor = 0;
-          socket.emit('update', { id, [stat]: novoValor });
-          break;
-        }
-        case 'remove': {
-          if (confirm(`Tem certeza que deseja remover ${id}?`)) {
-            socket.emit('remove', id);
-          }
-          break;
-        }
-        case 'toggle-visibility': {
-          const stat = element.dataset.stat;
-          const statVisivelKey = `${stat}Visivel`;
-          socket.emit('update', { id, [statVisivelKey]: !personagens[id][statVisivelKey] });
-          break;
-        }
-        case 'open-portrait': {
-          window.open(`/overlay.html?personagem=${encodeURIComponent(id)}`);
-          break;
-        }
-        case 'open-sheet': {
-            window.open(urlFicha, '_blank');
-            break;
-        }
-        case 'copy-link': {
-          navigator.clipboard.writeText(urlFicha).then(() => {
-            alert(`Link para a ficha de ${id} copiado!\n${urlFicha}`);
-          });
-          break;
-        }
-      }
     });
 
     container.addEventListener('change', (e) => {
-      const element = e.target.closest('[data-action="update-stat"], [data-action="update-notes"]');
-      if (!element) return;
+        const element = e.target.closest('[data-action="update-stat"]');
+        if (!element) return;
 
-      const id = element.closest('.card').dataset.id;
-      const isNotes = element.dataset.action === 'update-notes';
-      const stat = isNotes ? 'anotacoes' : element.name;
-      const value = isNotes ? element.value : parseInt(element.value, 10);
-      
-      if (isNotes) {
-        socket.emit('update', { id, [stat]: value });
-      } else if (!isNaN(value)) {
-        if (value < 0) {
-          element.value = 0;
-          socket.emit('update', { id, [stat]: 0 });
-        } else {
-          socket.emit('update', { id, [stat]: value });
+        const id = element.closest('.card').dataset.id;
+        const stat = element.name;
+        const value = parseInt(element.value, 10);
+        
+        if (!isNaN(value)) {
+            let finalValue = value < 0 ? 0 : value;
+            socket.emit('update', { id, [stat]: finalValue });
         }
-      }
     });
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const formData = new FormData(form);
-      const novoPersonagem = {
-          mesaId: mesaId
-      };
-      for (let [key, value] of formData.entries()) {
-        novoPersonagem[key] = isNaN(value) || !value ? value : parseInt(value);
-      }
-      if (!novoPersonagem.id || !novoPersonagem.mesaId) return;
-      socket.emit('add', novoPersonagem);
+      const id = formData.get('id');
+      if (!id || !mesaId) return;
+      socket.emit('add', { id: id.trim(), mesaId: mesaId });
       form.reset();
-      form.elements.id.focus();
     });
 
     socket.on('init', (data) => {
@@ -250,11 +202,11 @@
       }
     });
     
+    // A função formatRollResultForHistory e o socket.on('rollResult') permanecem as mesmas
     function formatRollResultForHistory(data) {
         const { rolls, keptRolls, bonus, total, id } = data;
         let rollsCopy = [...rolls];
         const keptIndices = [];
-
         keptRolls.forEach(keptRoll => {
             const index = rollsCopy.indexOf(keptRoll);
             if (index > -1) {
@@ -262,11 +214,9 @@
                 rollsCopy[index] = null;
             }
         });
-
         const formattedRolls = rolls.map((roll, index) => 
             keptIndices.includes(index) ? `${roll}` : `<s>${roll}</s>`
         ).join(', ');
-
         return `<b>${id}</b> rolou <b>${total}</b> <i>(Dados: ${formattedRolls}; Bônus: ${bonus})</i>`;
     }
 
