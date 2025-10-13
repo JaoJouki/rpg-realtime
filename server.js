@@ -32,29 +32,28 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(express.urlencoded({ extended: true }));
-
-// Serve todos os arquivos estáticos (HTML, CSS, imagens) da pasta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
 const checkAuth = (req, res, next) => {
   if (req.session.loggedIn) {
     return next();
   }
-  // Redireciona para login.html, que está na pasta public
   res.redirect('/login.html');
 };
 
-// --- ROTAS PROTEGIDAS E PÚBLICAS ---
+// --- ROTAS ---
 
-// A página de login não precisa de autenticação
+// Páginas públicas (não precisam de autenticação de mestre)
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
+app.get('/mesa.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'mesa.html'));
+});
 
-// A rota principal (/) e o controle.html SÃO protegidas
+// Páginas protegidas (apenas para o mestre logado)
 app.get('/', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.get('/controle.html', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'public', 'controle.html')); });
-
 
 app.post('/login', (req, res) => {
   const { password } = req.body;
@@ -88,7 +87,8 @@ app.post('/api/mesas', checkAuth, async (req, res) => {
     }
 });
 
-
+// O restante do seu server.js continua aqui...
+// (as funções carregarPersonagens, io.on('connection'), startServer, etc., permanecem as mesmas)
 async function carregarPersonagens(mesaId) {
     if (!mesaId) return {};
     const personagensCursor = personagensCollection.find({ mesaId: mesaId });

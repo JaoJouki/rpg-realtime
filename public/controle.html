@@ -3,9 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Painel de Controle</title>
-
-<link rel="icon" href="/images/icon.jpg" type="image/jpeg">
-
+  <link rel="icon" href="/images/icon.jpg" type="image/jpeg">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     @font-face {
@@ -14,14 +12,14 @@
     }
     body{ font-family: "Adobe Hebrew Regular", Arial, sans-serif; background:#121212; color:#fff; margin:0; padding:20px; }
     h1{ text-align:center; }
+    .header-nav { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px; }
+    .nav-back-button { padding: 8px 16px; background: #3498db; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; }
     #addForm{ background:#1f1f1f; padding:18px; border-radius:12px; max-width:700px; margin:0 auto 18px; display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     #addForm input, #addForm button{ padding:8px; border-radius:6px; border:0; background: #333; color: #fff;}
     #addForm button{ grid-column:span 2; background:#27ae60; color:#fff; cursor:pointer; font-weight: bold; }
-    
     #main-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
     #personagens{ display:flex; flex-wrap:wrap; gap:18px; justify-content:center; flex: 3; min-width: 320px; }
     #dice-history-container { flex: 2; min-width: 300px; background: #1f1f1f; padding: 18px; border-radius: 12px; max-height: 500px; overflow-y: auto;}
-
     .card{ position: relative; background:#1f1f1f; border-radius:10px; padding:14px; width:300px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
     .portrait{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid #444; margin-bottom:10px; cursor:pointer; }
     .name{ font-weight:700; margin-bottom:10px; cursor:pointer; }
@@ -36,12 +34,15 @@
     .btn-vis.is-hidden { opacity: 0.3; }
     .card-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
     .btn-card-action { background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; font-size: 18px; width: 30px; height: 30px; border-radius: 50%; line-height: 30px; text-align: center; }
-  
     .notes-area { width: 95%; height: 100px; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>Painel de Status</h1>
+  <div class="header-nav">
+      <a id="back-to-lobby-btn" href="#" class="nav-back-button">← Voltar ao Lobby</a>
+      <h1>Painel de Status</h1>
+  </div>
+  
   <form id="addForm">
       <input name="id" type="text" placeholder="Nome (ID)" required>
       <input name="imagem" type="text" placeholder="URL da imagem" >
@@ -66,7 +67,6 @@
     const params = new URLSearchParams(window.location.search);
     const mesaId = params.get('mesa');
     
-    // Conecta ao socket na sala específica da mesa
     const socket = io({ query: { mesaId } });
 
     let personagens = {};
@@ -78,8 +78,11 @@
         document.body.innerHTML = '<h1>Mesa não especificada. Volte para a página inicial e selecione uma mesa.</h1>';
     } else {
         document.querySelector('h1').innerText += ` | Mesa: ${mesaId}`;
+        document.getElementById('back-to-lobby-btn').href = `/mesa.html?mesa=${mesaId}`;
     }
 
+    // O restante do seu JavaScript de 'controle.html' continua aqui...
+    // (a função render, os event listeners, etc., permanecem os mesmos)
     function render() {
       container.innerHTML = '';
       for (const id in personagens) {
@@ -224,7 +227,7 @@
       e.preventDefault();
       const formData = new FormData(form);
       const novoPersonagem = {
-          mesaId: mesaId // Adiciona o ID da mesa
+          mesaId: mesaId
       };
       for (let [key, value] of formData.entries()) {
         novoPersonagem[key] = isNaN(value) || !value ? value : parseInt(value);

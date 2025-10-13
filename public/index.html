@@ -44,7 +44,6 @@
             const mesas = await response.json();
             const container = document.getElementById('mesas-container');
 
-            // Limpa mesas antigas, mantendo o formulário
             document.querySelectorAll('.mesa-card').forEach(card => card.remove());
 
             mesas.forEach(mesa => {
@@ -53,9 +52,9 @@
                 card.innerHTML = `
                     <h3>${mesa.nome}</h3>
                     <p>${mesa.descricao || 'Sem descrição.'}</p>
-                    <a href="/controle.html?mesa=${mesa._id}">Abrir Escudo do Mestre</a>
+                    <a href="/mesa.html?mesa=${mesa._id}">Abrir Mesa</a>
                 `;
-                container.prepend(card); // Adiciona no início para que o formulário fique por último
+                container.prepend(card);
             });
         }
         window.onload = carregarMesas;
