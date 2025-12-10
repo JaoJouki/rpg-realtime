@@ -11,8 +11,7 @@ const MASTER_PASSWORD = 'RPGSEGURO';
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = "RPGSEGURO-Potraits";
-const CHAR_COLLECTION = "personagens";
-const MESA_COLLECTION = "mesas";
+const COLLECTION_NAME = "personagens";
 // --------------------
 
 const app = express();
@@ -21,10 +20,9 @@ const io = new Server(server);
 
 let db;
 let personagensCollection;
-let mesasCollection;
 
 const sessionMiddleware = session({
-  secret: 'seu-segredo-de-sessao-aleatorio-super-forte',
+  secret: 'seu-segredo-de-sessao-aleatorio',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
@@ -32,7 +30,6 @@ const sessionMiddleware = session({
 
 app.use(sessionMiddleware);
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const checkAuth = (req, res, next) => {
@@ -42,56 +39,27 @@ const checkAuth = (req, res, next) => {
   res.redirect('/login.html');
 };
 
-// --- ROTAS ---
-app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
-app.get('/mesa.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'mesa.html')));
-app.get('/', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/controle.html', checkAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'controle.html')));
+app.get('/', (req, res) => { res.redirect('/controle'); });
+app.get('/controle', checkAuth, (req, res) => { res.sendFile(path.join(__dirname, 'controle.html')); });
 
 app.post('/login', (req, res) => {
-  if (req.body.password === MASTER_PASSWORD) {
+  const { password } = req.body;
+  if (password === MASTER_PASSWORD) {
     req.session.loggedIn = true;
-    res.redirect('/');
+    res.redirect('/controle');
   } else {
     res.redirect('/login.html?error=1');
   }
 });
 
-// --- API PARA AS MESAS ---
-app.get('/api/mesas', checkAuth, async (req, res) => {
-    const mesas = await mesasCollection.find().toArray();
-    res.json(mesas);
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/login.html');
+  });
 });
 
-app.post('/api/mesas', checkAuth, async (req, res) => {
-    const { nome, descricao } = req.body;
-    if (!nome) return res.status(400).send("O nome da mesa é obrigatório.");
-    const mesaId = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const novaMesa = { _id: mesaId, nome, descricao, personagens: [] };
-    try {
-        await mesasCollection.insertOne(novaMesa);
-        res.redirect('/');
-    } catch (e) {
-        res.status(409).send("Uma mesa com nome similar já existe.");
-    }
-});
-
-app.delete('/api/mesas/:mesaId', checkAuth, async (req, res) => {
-    const { mesaId } = req.params;
-    if (!mesaId) return res.status(400).send("ID da mesa é obrigatório.");
-    try {
-        const deleteMesaResult = await mesasCollection.deleteOne({ _id: mesaId });
-        if (deleteMesaResult.deletedCount === 0) return res.status(404).send("Mesa não encontrada.");
-        await personagensCollection.deleteMany({ mesaId: mesaId });
-        res.status(200).send({ message: "Mesa e personagens removidos." });
-    } catch (e) {
-        res.status(500).send("Erro interno ao remover a mesa.");
-    }
-});
-
-async function carregarPersonagens(mesaId) {
-    if (!mesaId) return {};
-    const personagensCursor = personagensCollection.find({ mesaId: mesaId });
+async function carregarPersonagens() {
+    const personagensCursor = personagensCollection.find();
     const personagensArray = await personagensCursor.toArray();
     const personagensObj = {};
     personagensArray.forEach(p => {
@@ -101,83 +69,67 @@ async function carregarPersonagens(mesaId) {
 }
 
 io.on('connection', async (socket) => {
-    const mesaId = socket.handshake.query.mesaId;
-    if (!mesaId) return;
-  
-    socket.join(mesaId);
-    console.log(`[SERVER] Cliente ${socket.id} entrou na sala da mesa: ${mesaId}`);
+  console.log(`[SERVER] Novo cliente conectado: ${socket.id}`);
 
-    const personagensAtuais = await carregarPersonagens(mesaId);
-    socket.emit('init', personagensAtuais);
+  const personagensAtuais = await carregarPersonagens();
+  socket.emit('init', personagensAtuais);
 
-    socket.on('add', async (data) => {
-        if (!data || !data.id || !data.mesaId) return;
+  socket.on('add', async (data) => {
+    if (!data || !data.id) return;
+    const novoPersonagem = { ...data, vidaVisivel: true, sanidadeVisivel: true, peVisivel: true, anotacoes: "" };
+    await personagensCollection.insertOne(novoPersonagem);
+    io.emit('init', await carregarPersonagens());
+  });
 
-        // NOVO: Estrutura de dados padrão para o novo sistema
-        const novoPersonagem = {
-            id: data.id,
-            mesaId: data.mesaId,
-            nome: data.id,
-            identidadeSecreta: "",
-            idade: "",
-            vida: 1,
-            vidaMax: 1,
-            sanidade: 1,
-            sanidadeMax: 1,
-            descricaoFisica: "",
-            historia: "",
-            estilo: "",
-            especialidades: [],
-            poderes: [],
-            imagem: "",
-            vidaVisivel: true,
-            sanidadeVisivel: true,
-        };
-        
-        await personagensCollection.insertOne(novoPersonagem);
-        await mesasCollection.updateOne({ _id: data.mesaId }, { $addToSet: { personagens: data.id } });
-        
-        io.to(mesaId).emit('init', await carregarPersonagens(mesaId));
+  socket.on('update', async (data) => {
+    const { id, ...campos } = data;
+    if (!id) return;
+
+    const camposParaAtualizar = { ...campos };
+
+    ['vida', 'sanidade', 'pe'].forEach(stat => {
+      if (camposParaAtualizar[stat] !== undefined && camposParaAtualizar[stat] < 0) {
+        camposParaAtualizar[stat] = 0;
+      }
     });
 
-    socket.on('update', async (data) => {
-        const { id, ...campos } = data;
-        if (!id) return;
-        await personagensCollection.updateOne({ id: id, mesaId: mesaId }, { $set: campos });
-        io.to(mesaId).emit('update', { id, ...campos });
-    });
+    await personagensCollection.updateOne({ id: id }, { $set: camposParaAtualizar });
+    io.emit('update', { id, ...camposParaAtualizar });
+  });
 
-    socket.on('rename', async ({ oldId, newId }) => {
-        if (!oldId || !newId) return;
-        await personagensCollection.updateOne({ id: oldId, mesaId: mesaId }, { $set: { id: newId } });
-        await mesasCollection.updateOne({ _id: mesaId, personagens: oldId }, { $set: { "personagens.$": newId } });
-        io.to(mesaId).emit('init', await carregarPersonagens(mesaId));
-    });
+  socket.on('rename', async ({ oldId, newId }) => {
+    if (!oldId || !newId) return;
+    await personagensCollection.updateOne({ id: oldId }, { $set: { id: newId } });
+    io.emit('init', await carregarPersonagens());
+  });
 
-    socket.on('remove', async (id) => {
-        if (!id) return;
-        await personagensCollection.deleteOne({ id: id, mesaId: mesaId });
-        await mesasCollection.updateOne({ _id: mesaId }, { $pull: { personagens: id } });
-        io.to(mesaId).emit('init', await carregarPersonagens(mesaId));
-    });
+  socket.on('remove', async (id) => {
+    if (!id) return;
+    await personagensCollection.deleteOne({ id: id });
+    io.emit('init', await carregarPersonagens());
+  });
 
-    socket.on('roll', (data) => {
-        const { id, numDice, diceType, bonus = 0, keepHighest, keepLowest } = data;
-        if (!id || !numDice || !diceType) return;
-        const rolls = Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1);
-        let keptRolls = [...rolls];
-        if (keepHighest && keepHighest > 0 && keepHighest < rolls.length) {
-            keptRolls = [...rolls].sort((a, b) => b - a).slice(0, keepHighest);
-        } else if (keepLowest && keepLowest > 0 && keepLowest < rolls.length) {
-            keptRolls = [...rolls].sort((a, b) => a - b).slice(0, keepLowest);
-        }
-        const total = keptRolls.reduce((sum, roll) => sum + roll, 0) + bonus;
-        io.to(mesaId).emit('rollResult', { id, rolls, keptRolls, bonus, total });
-    });
+  socket.on('roll', (data) => {
+    const { id, numDice, diceType, bonus = 0, keepHighest, keepLowest } = data;
+    if (!id || !numDice || !diceType) return;
 
-    socket.on('disconnect', () => {
-        console.log(`[SERVER] Cliente ${socket.id} desconectado da sala: ${mesaId}`);
-    });
+    const rolls = Array.from({ length: numDice }, () => Math.floor(Math.random() * diceType) + 1);
+    
+    let keptRolls = [...rolls];
+    if (keepHighest && keepHighest > 0 && keepHighest < rolls.length) {
+      keptRolls = [...rolls].sort((a, b) => b - a).slice(0, keepHighest);
+    } else if (keepLowest && keepLowest > 0 && keepLowest < rolls.length) {
+      keptRolls = [...rolls].sort((a, b) => a - b).slice(0, keepLowest);
+    }
+    
+    const total = keptRolls.reduce((sum, roll) => sum + roll, 0) + bonus;
+
+    io.emit('rollResult', { id, rolls, keptRolls, bonus, total });
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[SERVER] Cliente desconectado: ${socket.id}`);
+  });
 });
 
 async function startServer() {
@@ -186,8 +138,7 @@ async function startServer() {
         await client.connect();
         console.log("[SERVER] Conectado ao MongoDB Atlas!");
         db = client.db(DB_NAME);
-        personagensCollection = db.collection(CHAR_COLLECTION);
-        mesasCollection = db.collection(MESA_COLLECTION);
+        personagensCollection = db.collection(COLLECTION_NAME);
 
         server.listen(PORT, () => console.log(`[SERVER] Servidor rodando em http://localhost:${PORT}`));
     } catch (err) {
