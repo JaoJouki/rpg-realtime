@@ -8,7 +8,6 @@
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    /* ATUALIZADO: Fonte Adobe Hebrew Regular */
     @font-face {
       font-family: "Adobe Hebrew Regular";
       src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
@@ -44,18 +43,31 @@
         transition: filter 1s ease-in-out;
     }
 
+    /* --- ATUALIZAÇÃO DA MOLDURA AQUI --- */
     .portrait-border {
-        position:absolute;
-        left:30px;
-        top:40px;
-        width:320px;
-        height:320px;
-        border-radius:50%;
-        border:12px solid rgba(10,10,10,0.95);
+        position: absolute;
+        /* Ajustado para centralizar uma imagem de 400px sobre a foto de 320px que está em 40,60 */
+        left: 0px; 
+        top: 20px;
+        /* Tamanho maior para acomodar os detalhes externos da moldura */
+        width: 400px;
+        height: 400px;
+        
+        /* Configuração da Imagem de Fundo */
+        background-image: url('/images/moldura.png'); /* Certifique-se de salvar a imagem com este nome */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        
+        /* Removemos as bordas antigas */
+        border: none;
+        border-radius: 0;
         background-color: transparent;
-        z-index: 2;
+
+        z-index: 2; /* Fica acima da foto */
         pointer-events: none;
     }
+    /* ---------------------------------- */
 
     .portrait-image.dead { filter: grayscale(100%) brightness(0); }
     .name { position:absolute; left:370px; top:36px; font-size:100px; color:#fff; transform:rotate(-8deg); text-shadow:3px 4px 6px rgba(0,0,0,0.85); }
