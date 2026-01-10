@@ -23,220 +23,179 @@
 
     .card { position:relative; width:720px; height:480px; }
 
-    /* MODIFICADO: Removido o border-radius/overflow para o efeito de pincelada funcionar */
     .portrait-container {
         position: absolute;
         left: 40px;
         top: 60px;
         width: 320px;
         height: 320px;
+        border-radius: 50%;
+        overflow: hidden;
         z-index: 1;
-        /* ADICIONADO: Respiração e Filtro */
-        animation: respiration 4s infinite ease-in-out;
-        filter: url(#filtro-rasgado) drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
-    }
-
-    /* NOVO: Regra da animação de respiração */
-    @keyframes respiration {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.025); }
     }
 
     .portrait-image {
         width: 100%;
         height: 100%;
-        background-size: contain; /* Ajustado para não cortar a imagem */
-        background-repeat: no-repeat;
+        background-size: cover;
         background-position: center;
         position: relative;
         transition: filter 1s ease-in-out;
     }
 
-    .portrait-overlay {
+    /* --- ATUALIZAÇÃO DA MOLDURA AQUI --- */
+    .portrait-border {
+        position: absolute;
+        /* Ajustado para centralizar uma imagem de 400px sobre a foto de 320px que está em 40,60 */
+        left: 0px; 
+        top: 20px;
+        /* Tamanho maior para acomodar os detalhes externos da moldura */
+        width: 400px;
+        height: 400px;
+        
+        /* Configuração da Imagem de Fundo */
+        background-image: url('/images/moldura.png'); /* Certifique-se de salvar a imagem com este nome */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        
+        /* Removemos as bordas antigas */
+        border: none;
+        border-radius: 0;
+        background-color: transparent;
+
+        z-index: 2; /* Fica acima da foto */
+        pointer-events: none;
+    }
+    /* ---------------------------------- */
+
+    .portrait-image.dead { filter: grayscale(100%) brightness(0); }
+    .name { position:absolute; left:370px; top:36px; font-size:100px; color:#fff; transform:rotate(-8deg); text-shadow:3px 4px 6px rgba(0,0,0,0.85); }
+    .vida-large { position:absolute; left:370px; top:110px; font-size:128px; color:#b44245; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
+    .san-large { position:absolute; left:370px; top:225px; font-size:128px; color:#2477b8; transform:rotate(-8deg); text-shadow:6px 6px 8px rgba(0,0,0,0.8); }
+    .pe-badge { position:absolute; left:72px; bottom:84px; font-size:44px; color:#f1c40f; text-shadow:2px 2px 6px rgba(0,0,0,0.8); }
+    .status-hidden { opacity: 0; transition: opacity 0.3s ease-in-out; }
+    .waiting-message { color: #ccc; font-size: 24px; text-align: center; margin-top: 50px; }
+
+    @keyframes breath-portrait {
+        0% { transform: scale(1.0); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1.0); }
+    }
+    .portrait-image.breath { animation: breath-portrait 4s ease-in-out infinite; }
+    .card.morto .portrait-image.breath { animation-play-state: paused; }
+
+    /* Estilos da Animação de Dados */
+    .roll-animation-container {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-size: contain;
-        background-repeat: no-repeat;
-        z-index: 2;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 1s ease-in-out;
-    }
-
-    .portrait-overlay.visible { opacity: 1; }
-
-    .info-container {
-        position: absolute;
-        right: 40px;
-        top: 60px;
-        width: 300px;
-        color: white;
-        z-index: 3;
-    }
-
-    .name-badge {
-        font-size: 32px;
-        font-weight: bold;
-        text-shadow: 2px 2px 4px black;
-        margin-bottom: 20px;
-        text-align: right;
-    }
-
-    .bar-wrapper { margin-bottom: 15px; }
-
-    .bar-label {
         display: flex;
-        justify-content: space-between;
-        font-size: 18px;
-        margin-bottom: 5px;
-        text-shadow: 1px 1px 2px black;
-    }
-
-    .bar-container {
-        width: 100%;
-        height: 20px;
-        background: rgba(0,0,0,0.6);
-        border: 2px solid #333;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-
-    .bar-fill {
-        height: 100%;
-        width: 0%;
-        transition: width 0.5s ease-out;
-    }
-
-    .hp-fill { background: #e74c3c; }
-    .san-fill { background: #3498db; }
-    .pe-fill { background: #f1c40f; }
-
-    .roll-animation-container {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 400px;
-        height: 400px;
-        z-index: 100;
-        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 0.4s ease-in-out;
         pointer-events: none;
     }
+    .roll-animation-container.visible {
+        opacity: 1;
+    }
 
-    .roll-animation-container.visible { display: block; }
-    .roll-animation-container video { width: 100%; height: 100%; }
+    .roll-animation-container video {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
 
     .roll-result-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 80px;
-        font-weight: bold;
-        color: white;
-        text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px black;
+        font-size: 150px;
+        color: #fff;
+        text-shadow: 0 0 10px #000, 0 0 20px #000, 0 0 30px #000;
+        -webkit-text-stroke: 3px black;
+        z-index: 11;
         opacity: 0;
-        transition: opacity 0.5s ease-in;
+        transform: scale(0.8);
+        transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     }
-
-    .roll-result-text.visible { opacity: 1; }
+    .roll-result-text.visible {
+        opacity: 1;
+        transform: scale(1);
+    }
   </style>
 </head>
 <body>
-
-  <svg style="position: absolute; width: 0; height: 0; pointer-events: none;">
-    <defs>
-      <filter id="filtro-rasgado" x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="20" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-    </defs>
-  </svg>
-
   <div id="overlays"></div>
 
   <script>
     const socket = io();
-    const urlParams = new URLSearchParams(window.location.search);
-    const personagemId = urlParams.get('id');
-
     let personagens = {};
+    const container = document.getElementById('overlays');
     let showResultTimeout;
     let hideAllTimeout;
 
+    const params = new URLSearchParams(window.location.search);
+    const personagemId = params.get('personagem');
+
     function render() {
-        const container = document.getElementById('overlays');
-        container.innerHTML = '';
+      container.innerHTML = '';
+      if (!personagemId) {
+        container.innerHTML = `<div class="waiting-message">Nenhum personagem especificado.</div>`;
+        return;
+      }
+      const p = personagens[personagemId];
+      if (p) {
+        const isDead = p.vida <= 0;
+        const portraitImageClass = isDead ? 'portrait-image dead' : 'portrait-image breath';
+        const cardClass = isDead ? 'card morto' : 'card';
 
-        const list = personagemId ? 
-            (personagens[personagemId] ? [personagens[personagemId]] : []) : 
-            Object.values(personagens);
+        const cardHTML = `
+          <div class="${cardClass}" data-personagem-id="${personagemId}">
+            <div class="portrait-container">
+                <div class="${portraitImageClass}" style="background-image: url('${p.imagem || '/images/portrait.png'}')"></div>
 
-        list.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.id = `card-${p.id}`;
-
-            let statusClass = '';
-            let overlayUrl = '';
-            if (p.hp <= 0) { 
-                statusClass = 'grayscale(100%) brightness(0.5)'; 
-            } else if ((p.hp / p.hpMax) <= 0.25) {
-                overlayUrl = '/images/overlay_ferido.png';
-            }
-
-            card.innerHTML = `
-                <div class="portrait-container">
-                    <div class="portrait-image" style="background-image: url('${p.foto}'); filter: ${statusClass}"></div>
-                    <div class="portrait-overlay ${overlayUrl ? 'visible' : ''}" style="background-image: url('${overlayUrl}')"></div>
-                </div>
-                <div class="info-container">
-                    <div class="name-badge">${p.nome}</div>
-                    
-                    <div class="bar-wrapper">
-                        <div class="bar-label"><span>PV</span><span class="hp-badge">${p.hp}/${p.hpMax}</span></div>
-                        <div class="bar-container"><div class="bar-fill hp-fill" style="width: ${(p.hp/p.hpMax)*100}%"></div></div>
-                    </div>
-
-                    <div class="bar-wrapper">
-                        <div class="bar-label"><span>SAN</span><span class="san-badge">${p.san}/${p.sanMax}</span></div>
-                        <div class="bar-container"><div class="bar-fill san-fill" style="width: ${(p.san/p.sanMax)*100}%"></div></div>
-                    </div>
-
-                    <div class="bar-wrapper">
-                        <div class="bar-label"><span>PE</span><span class="pe-badge">${p.pe}/${p.peMax}</span></div>
-                        <div class="bar-container"><div class="bar-fill pe-fill" style="width: ${(p.pe/p.peMax)*100}%"></div></div>
-                    </div>
-                </div>
                 <div class="roll-animation-container">
-                    <video src="/videos/roll_anim.webm" muted></video>
-                    <div class="roll-result-text">0</div>
+                    <video src="/videos/dice.webm" muted playsinline></video>
+                    <div class="roll-result-text"></div>
                 </div>
-            `;
-            container.appendChild(card);
-        });
+            </div>
+            <div class="portrait-border"></div>
+            <div class="name">${personagemId}</div>
+            <div class="vida-large ${p.vidaVisivel === false ? 'status-hidden' : ''}">${p.vida}/${p.vidaMax}</div>
+            <div class="san-large ${p.sanidadeVisivel === false ? 'status-hidden' : ''}">${p.sanidade}/${p.sanidadeMax}</div>
+            <div class="pe-badge ${p.peVisivel === false ? 'status-hidden' : ''}">${p.pe}/${p.peMax}</div>
+          </div>
+        `;
+        container.innerHTML = cardHTML;
+      } else {
+        container.innerHTML = `<div class="waiting-message">Aguardando dados para "${personagemId}"...</div>`;
+      }
     }
 
     socket.on('init', (data) => {
-        personagens = data || {};
-        render();
+      personagens = data || {};
+      render();
     });
 
     socket.on('update', (data) => {
-        if (data && data.id) {
-            if (personagens[data.id]) {
-                Object.assign(personagens[data.id], data);
-                const card = document.getElementById(`card-${data.id}`);
+        if (data && data.id === personagemId) {
+            if (!personagens[data.id]) {
+                personagens[data.id] = {};
+            }
+            const wasAlive = personagens[data.id].vida > 0;
+            Object.assign(personagens[data.id], data);
+            const isNowDead = personagens[data.id].vida <= 0;
+            if ((wasAlive && isNowDead) || (!wasAlive && !isNowDead)) {
+                render();
+            } else {
+                const card = document.querySelector(`.card[data-personagem-id="${personagemId}"]`);
                 if (card) {
-                    const p = personagens[data.id];
-                    card.querySelector('.hp-fill').style.width = `${(p.hp/p.hpMax)*100}%`;
-                    card.querySelector('.hp-badge').innerText = `${p.hp}/${p.hpMax}`;
-                    card.querySelector('.san-fill').style.width = `${(p.san/p.sanMax)*100}%`;
-                    card.querySelector('.san-badge').innerText = `${p.san}/${p.sanMax}`;
-                    card.querySelector('.pe-fill').style.width = `${(p.pe/p.peMax)*100}%`;
+                    const p = personagens[personagemId];
+                    card.querySelector('.vida-large').innerText = `${p.vida}/${p.vidaMax}`;
+                    card.querySelector('.san-large').innerText = `${p.sanidade}/${p.sanidadeMax}`;
                     card.querySelector('.pe-badge').innerText = `${p.pe}/${p.peMax}`;
                 } else {
                     render();
@@ -246,27 +205,29 @@
     });
 
     socket.on('rollResult', (data) => {
-        if (data.id === personagemId || !personagemId) {
-            const card = document.getElementById(`card-${data.id}`);
-            if (!card) return;
-
-            const animContainer = card.querySelector('.roll-animation-container');
+        if (data.id === personagemId) {
+            const animContainer = document.querySelector('.roll-animation-container');
             const video = animContainer.querySelector('video');
             const resultText = animContainer.querySelector('.roll-result-text');
 
             if (animContainer && video && resultText) {
                 clearTimeout(showResultTimeout);
                 clearTimeout(hideAllTimeout);
+
                 resultText.classList.remove('visible');
                 animContainer.classList.remove('visible');
+
                 void animContainer.offsetWidth;
+
                 animContainer.classList.add('visible');
                 video.currentTime = 0;
                 video.play();
+
                 showResultTimeout = setTimeout(() => {
                     resultText.innerText = data.total;
                     resultText.classList.add('visible');
                 }, 500);
+
                 hideAllTimeout = setTimeout(() => {
                     animContainer.classList.remove('visible');
                 }, 4000);
