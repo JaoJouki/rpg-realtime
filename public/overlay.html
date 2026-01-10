@@ -10,7 +10,7 @@
   <style>
     @font-face {
       font-family: "Adobe Hebrew Regular";
-      src: url("/fonts/adobe-hebrew-regular.otf") format(\"opentype\");
+      src: url("/fonts/adobe-hebrew-regular.otf") format("opentype");
     }
     
     body { 
@@ -23,7 +23,7 @@
 
     .card { position:relative; width:720px; height:480px; }
 
-    /* MODIFICADO: Adicionada animação e o filtro de borda pincelada */
+    /* MODIFICADO: Removido o border-radius/overflow para o efeito de pincelada funcionar */
     .portrait-container {
         position: absolute;
         left: 40px;
@@ -31,22 +31,22 @@
         width: 320px;
         height: 320px;
         z-index: 1;
-        /* Efeito de respiração */
+        /* ADICIONADO: Respiração e Filtro */
         animation: respiration 4s infinite ease-in-out;
-        /* Chama o filtro SVG definido no body */
         filter: url(#filtro-rasgado) drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
     }
 
     /* NOVO: Regra da animação de respiração */
     @keyframes respiration {
         0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.03); }
+        50% { transform: scale(1.025); }
     }
 
     .portrait-image {
         width: 100%;
         height: 100%;
-        background-size: cover;
+        background-size: contain; /* Ajustado para não cortar a imagem */
+        background-repeat: no-repeat;
         background-position: center;
         position: relative;
         transition: filter 1s ease-in-out;
@@ -58,7 +58,8 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-size: cover;
+        background-size: contain;
+        background-repeat: no-repeat;
         z-index: 2;
         pointer-events: none;
         opacity: 0;
@@ -126,7 +127,6 @@
     }
 
     .roll-animation-container.visible { display: block; }
-
     .roll-animation-container video { width: 100%; height: 100%; }
 
     .roll-result-text {
@@ -257,21 +257,16 @@
             if (animContainer && video && resultText) {
                 clearTimeout(showResultTimeout);
                 clearTimeout(hideAllTimeout);
-
                 resultText.classList.remove('visible');
                 animContainer.classList.remove('visible');
-
                 void animContainer.offsetWidth;
-
                 animContainer.classList.add('visible');
                 video.currentTime = 0;
                 video.play();
-
                 showResultTimeout = setTimeout(() => {
                     resultText.innerText = data.total;
                     resultText.classList.add('visible');
                 }, 500);
-
                 hideAllTimeout = setTimeout(() => {
                     animContainer.classList.remove('visible');
                 }, 4000);
